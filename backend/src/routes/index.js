@@ -11,7 +11,7 @@ import settingsRoutes from './settings.routes.js';
 import paymentRoutes from './Payment.routes.js';
 import dashboardRoutes from './dashboard.routes.js';
 import taxRoutes from './tax.routes.js';
-import debugRoutes from './Debug.routes.js';
+import debugRoutes from './debug.routes.js';
 import userRoutes from './users.routes.js';
 // New routes for Stock Management and GRN
 import stockRoutes from './stock.routes.js';
