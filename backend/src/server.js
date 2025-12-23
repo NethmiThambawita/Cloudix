@@ -15,7 +15,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5174',
-  'https://cloudix-frontend-v73p.onrender.com',  // Your deployed frontend
+  'https://cloudix-frontend-v73p.onrender.com',  // Old frontend
+  'https://cloudix-frontend-new.onrender.com',   // New deployed frontend
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
