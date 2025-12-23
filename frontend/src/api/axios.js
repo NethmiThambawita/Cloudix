@@ -1,11 +1,12 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://cloudix-new.onrender.com/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1',
   headers: {
     'Content-Type': 'application/json'
   },
-  withCredentials: true
+  withCredentials: true,
+  timeout: 30000 // 30 second timeout
 });
 
 api.interceptors.request.use(
