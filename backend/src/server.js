@@ -10,31 +10,16 @@ const app = express();
 // Connect Database
 connectDB();
 
-// CORS Middleware - MUST BE BEFORE HELMET
-// Allow multiple origins for development and production
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',  // Vite default
-  'http://localhost:5174',
-  process.env.FRONTEND_URL,
-].filter(Boolean);
-
+// CORS Middleware - Allow all origins for testing
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, curl, etc.)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('❌ CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: '*',  // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Preflight handling
+app.options('*', cors());
 
 // Helmet Middleware with proper configuration for static files
 app.use(helmet({
