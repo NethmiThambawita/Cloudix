@@ -4,7 +4,7 @@
   "description": "Cloudix ERP/CRM System",
   "type": "module",
   "scripts": {
-    "install": "cd backend && npm install",
+    "postinstall": "cd backend && npm install",
     "start": "cd backend && npm start",
     "dev": "cd backend && npm run dev"
   }
