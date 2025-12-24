@@ -8,6 +8,7 @@ export const login = createAsyncThunk(
       const response = await api.post('/auth/login', credentials);
       const { token, user } = response.data;
       localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
       return { token, user };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Login failed');
@@ -30,7 +31,7 @@ export const fetchMe = createAsyncThunk(
 const authSlice = createSlice({
   name: 'auth',
   initialState: {
-    user: null,
+    user: JSON.parse(localStorage.getItem('user')) || null,
     token: localStorage.getItem('token') || null,
     loading: false,
     error: null
@@ -40,6 +41,7 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
   },
   extraReducers: (builder) => {
@@ -52,6 +54,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
+        localStorage.setItem('user', JSON.stringify(action.payload.user));
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
@@ -64,12 +67,14 @@ const authSlice = createSlice({
       .addCase(fetchMe.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload;
+        localStorage.setItem('user', JSON.stringify(action.payload));
       })
       .addCase(fetchMe.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
         // Token might be invalid/expired
         state.user = null;
+        localStorage.removeItem('user');
       });
   }
 });

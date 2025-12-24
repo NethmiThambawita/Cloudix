@@ -41,7 +41,7 @@ services:
 
   # Frontend Static Site
   - type: web
-    name: cloudix-frontend
+    name: cloudix-frontend-new
     env: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
