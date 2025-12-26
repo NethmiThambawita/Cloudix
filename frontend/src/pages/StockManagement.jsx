@@ -67,6 +67,11 @@ function StockManagement() {
 
   const handleAdjustSubmit = async (values) => {
     try {
+      if (!selectedStock?.product?._id) {
+        message.error('Invalid stock item selected');
+        return;
+      }
+
       await api.post('/stock/adjust', {
         productId: selectedStock.product._id,
         quantity: values.type === 'damage' || values.type === 'loss' ? -Math.abs(values.quantity) : values.quantity,
@@ -90,13 +95,17 @@ function StockManagement() {
       key: 'product',
       render: (name, record) => (
         <div>
-          <div style={{ fontWeight: 500 }}>{name}</div>
-          {record.product.category && (
+          <div style={{ fontWeight: 500 }}>{name || 'N/A'}</div>
+          {record.product?.category && (
             <div style={{ fontSize: 12, color: '#999' }}>{record.product.category}</div>
           )}
         </div>
       ),
-      sorter: (a, b) => a.product.name.localeCompare(b.product.name)
+      sorter: (a, b) => {
+        const nameA = a.product?.name || '';
+        const nameB = b.product?.name || '';
+        return nameA.localeCompare(nameB);
+      }
     },
     {
       title: 'Location',
@@ -180,24 +189,26 @@ function StockManagement() {
       width: 200,
       render: (_, record) => (
         <Space>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             icon={<EditOutlined />}
             onClick={() => navigate(`/stock/edit/${record._id}`)}
           >
             Edit
           </Button>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             icon={<MinusCircleOutlined />}
             onClick={() => handleAdjustStock(record)}
+            disabled={!record.product}
           >
             Adjust
           </Button>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             icon={<SwapOutlined />}
             onClick={() => navigate(`/stock/transfer/${record._id}`)}
+            disabled={!record.product}
           >
             Transfer
           </Button>

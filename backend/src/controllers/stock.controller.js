@@ -58,6 +58,23 @@ export const getStockByProduct = async (req, res) => {
   }
 };
 
+// Get stock by stock ID
+export const getStockById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const stock = await Stock.findById(id)
+      .populate('product', 'name category price description');
+
+    if (!stock) {
+      return res.status(404).json({ message: 'Stock not found' });
+    }
+
+    res.json(stock);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching stock', error: error.message });
+  }
+};
+
 // Create or initialize stock for a product
 export const createStock = async (req, res) => {
   try {

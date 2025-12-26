@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getAllStock,
   getStockByProduct,
+  getStockById,
   createStock,
   updateStock,
   adjustStock,
@@ -35,6 +36,9 @@ router.get('/product/:productId', getStockByProduct);
 
 // Get stock balance for a product
 router.get('/balance/:productId', getStockBalance);
+
+// Get stock by ID (must be after specific routes to avoid conflicts)
+router.get('/:id', getStockById);
 
 // Create new stock entry
 router.post('/', createStock);
