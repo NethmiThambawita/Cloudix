@@ -135,19 +135,46 @@ export const updateStock = async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
-    // Don't allow direct quantity updates through this endpoint
-    delete updates.quantity;
+    // Get current stock to compare quantity changes
+    const currentStock = await Stock.findById(id);
+    if (!currentStock) {
+      return res.status(404).json({ message: 'Stock not found' });
+    }
+
+    const quantityChanged = updates.quantity !== undefined && updates.quantity !== currentStock.quantity;
+    const oldQuantity = currentStock.quantity;
+    const newQuantity = updates.quantity;
+
+    // Don't allow direct updates to batches and serialNumbers
     delete updates.batches;
     delete updates.serialNumbers;
 
+    // Update the stock
     const stock = await Stock.findByIdAndUpdate(
       id,
       updates,
       { new: true, runValidators: true }
     ).populate('product');
 
-    if (!stock) {
-      return res.status(404).json({ message: 'Stock not found' });
+    // If quantity was changed, create a transaction record for audit trail
+    if (quantityChanged) {
+      const quantityDiff = newQuantity - oldQuantity;
+      const transaction = new StockTransaction({
+        transactionType: 'adjustment',
+        product: stock.product._id,
+        quantity: Math.abs(quantityDiff),
+        toLocation: quantityDiff > 0 ? stock.location : null,
+        fromLocation: quantityDiff < 0 ? stock.location : null,
+        balanceBefore: oldQuantity,
+        balanceAfter: newQuantity,
+        referenceType: 'Manual Edit',
+        referenceNumber: `EDIT-${Date.now()}`,
+        reason: 'Stock quantity updated via edit form',
+        notes: `Quantity changed from ${oldQuantity} to ${newQuantity}`,
+        performedBy: req.user.id,
+        transactionDate: new Date()
+      });
+      await transaction.save();
     }
 
     res.json(stock);

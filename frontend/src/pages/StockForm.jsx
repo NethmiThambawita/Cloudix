@@ -158,10 +158,10 @@ function StockForm() {
             <Row gutter={16}>
               <Col xs={24} sm={12} md={8}>
                 <Form.Item
-                  label="Initial Quantity"
+                  label={isEdit ? "Current Quantity" : "Initial Quantity"}
                   name="quantity"
                   rules={[{ required: true, message: 'Please enter quantity' }]}
-                  tooltip="Starting stock quantity"
+                  tooltip={isEdit ? "Update the current stock quantity" : "Starting stock quantity"}
                 >
                   <InputNumber
                     style={{ width: '100%' }}
