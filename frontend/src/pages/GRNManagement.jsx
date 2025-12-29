@@ -127,7 +127,7 @@ function GRNManagement() {
     confirm({
       title: 'Delete GRN?',
       icon: <ExclamationCircleOutlined />,
-      content: `Are you sure you want to delete GRN ${record.grnNumber}? This action cannot be undone.`,
+      content: `Are you sure you want to Delete GRN.`,
       okText: 'Yes, Delete',
       okType: 'danger',
       cancelText: 'Cancel',
