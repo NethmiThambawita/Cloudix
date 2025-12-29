@@ -56,8 +56,7 @@ const grnSchema = new mongoose.Schema({
   },
   supplier: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Supplier',
-    required: true
+    ref: 'Supplier'
   },
   customer: {
     type: mongoose.Schema.Types.ObjectId,

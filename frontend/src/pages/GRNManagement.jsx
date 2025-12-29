@@ -1,23 +1,30 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Space, Tag, Card, Input, Select, Row, Col, DatePicker, message, Badge } from 'antd';
-import { 
-  PlusOutlined, 
-  SearchOutlined, 
+import { Table, Button, Space, Tag, Card, Input, Select, Row, Col, DatePicker, message, Badge, Modal } from 'antd';
+import {
+  PlusOutlined,
+  SearchOutlined,
   EyeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   SyncOutlined,
   ExperimentOutlined,
-  InboxOutlined
+  InboxOutlined,
+  DeleteOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import api from '../api/axios';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
+
+const { confirm } = Modal;
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 
 function GRNManagement() {
+  const { user } = useSelector((state) => state.auth);
+  const isAdmin = user?.role === 'admin';
   const [grns, setGRNs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -116,6 +123,27 @@ function GRNManagement() {
     }
   };
 
+  const handleDelete = (record) => {
+    confirm({
+      title: 'Delete GRN?',
+      icon: <ExclamationCircleOutlined />,
+      content: `Are you sure you want to delete GRN ${record.grnNumber}? This action cannot be undone.`,
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      async onOk() {
+        try {
+          await api.delete(`/grn/${record._id}`);
+          message.success('GRN deleted successfully');
+          fetchGRNs();
+        } catch (error) {
+          console.error('Failed to delete GRN:', error);
+          message.error(error.response?.data?.message || 'Failed to delete GRN');
+        }
+      }
+    });
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       draft: 'default',
@@ -160,7 +188,8 @@ function GRNManagement() {
       title: 'Supplier',
       dataIndex: ['supplier', 'name'],
       key: 'supplier',
-      width: 150
+      width: 150,
+      render: (name) => name || '-'
     },
     {
       title: 'Customer',
@@ -252,20 +281,20 @@ function GRNManagement() {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 280,
+      width: 320,
       render: (_, record) => (
         <Space size="small" wrap>
-          <Button 
-            size="small" 
+          <Button
+            size="small"
             icon={<EyeOutlined />}
             onClick={() => navigate(`/grn/view/${record._id}`)}
           >
             View
           </Button>
-          
+
           {record.status === 'draft' && (
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               type="primary"
               icon={<ExperimentOutlined />}
               onClick={() => handleInspect(record._id)}
@@ -273,10 +302,10 @@ function GRNManagement() {
               Inspect
             </Button>
           )}
-          
+
           {record.status === 'inspected' && (
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               type="primary"
               icon={<CheckCircleOutlined />}
               onClick={() => handleApprove(record._id)}
@@ -284,15 +313,26 @@ function GRNManagement() {
               Approve
             </Button>
           )}
-          
+
           {record.status === 'approved' && !record.stockUpdated && (
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               type="primary"
               icon={<InboxOutlined />}
               onClick={() => handleUpdateStock(record._id)}
             >
               Update Stock
+            </Button>
+          )}
+
+          {isAdmin && record.status === 'draft' && (
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record)}
+            >
+              Delete
             </Button>
           )}
         </Space>

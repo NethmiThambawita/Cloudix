@@ -16,7 +16,8 @@ import {
 } from 'antd';
 import {
   EditOutlined,
-  FilePdfOutlined
+  FilePdfOutlined,
+  PrinterOutlined
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios'; // ✅ FIXED: Use configured api
@@ -86,17 +87,44 @@ const InvoiceView = () => {
       const response = await api.get(`/invoices/${id}/pdf`, {
         responseType: 'blob'
       });
-      
+
       // Create blob URL and open in new tab
       const blob = new Blob([response.data], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       window.open(url, '_blank');
-      
+
       // Clean up the URL after opening
       setTimeout(() => window.URL.revokeObjectURL(url), 100);
     } catch (error) {
       message.error('Failed to generate PDF');
       console.error('PDF error:', error);
+    }
+  };
+
+  // Print PDF directly
+  const handlePrint = async () => {
+    try {
+      const response = await api.get(`/invoices/${id}/pdf`, {
+        responseType: 'blob'
+      });
+
+      // Create blob URL
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+
+      // Open in new window and trigger print
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+
+      // Clean up the URL after a delay
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      message.error('Failed to print invoice');
+      console.error('Print error:', error);
     }
   };
 
@@ -159,15 +187,20 @@ const InvoiceView = () => {
       {/* Action Buttons */}
       <div style={{ marginBottom: 16 }}>
         <Space>
-          {/* ✅ REMOVED: Print button */}
-          <Button 
+          <Button
             icon={<FilePdfOutlined />}
             type="primary"
             onClick={handleViewPDF}
           >
             View PDF
           </Button>
-          <Button 
+          <Button
+            icon={<PrinterOutlined />}
+            onClick={handlePrint}
+          >
+            Print
+          </Button>
+          <Button
             onClick={() => setStatusModalVisible(true)}
           >
             Update Status

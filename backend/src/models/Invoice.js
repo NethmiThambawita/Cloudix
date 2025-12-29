@@ -14,6 +14,7 @@ const invoiceSchema = new mongoose.Schema({
   type: { type: String, default: 'invoice' },
   invoiceNumber: { type: String, required: true, unique: true },
   customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
+  supplier: { type: mongoose.Schema.Types.ObjectId, ref: 'Supplier' },
   date: { type: Date, default: Date.now },
   dueDate: Date,
   items: [invoiceItemSchema],

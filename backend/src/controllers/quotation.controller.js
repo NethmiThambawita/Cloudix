@@ -92,6 +92,7 @@ export const getAllQuotations = async (req, res) => {
     
     const quotations = await Quotation.find(query)
       .populate('customer', 'name email phone')
+      .populate('supplier', 'name email phone')
       .populate('items.product', 'name')
       .populate('taxes', 'name type value')
       .sort({ createdAt: -1 })
@@ -118,6 +119,7 @@ export const getQuotationById = async (req, res) => {
   try {
     const quotation = await Quotation.findById(req.params.id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product')
       .populate('taxes', 'name type value')
       .populate('createdBy', 'firstName lastName email');
@@ -184,6 +186,7 @@ export const createQuotation = async (req, res) => {
 
     const populatedQuotation = await Quotation.findById(quotation._id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product')
       .populate('taxes', 'name type value')
 
@@ -243,6 +246,7 @@ export const updateQuotation = async (req, res) => {
       { new: true, runValidators: true }
     )
     .populate('customer')
+    .populate('supplier')
     .populate('items.product')
     .populate('taxes', 'name type value')
     
@@ -284,6 +288,7 @@ export const updateQuotationStatus = async (req, res) => {
     
     const updatedQuotation = await Quotation.findById(quotation._id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product')
       .populate('createdBy', 'firstName lastName email')
       .lean();
@@ -321,8 +326,9 @@ export const generateQuotationPDF = async (req, res) => {
   try {
     const quotation = await Quotation.findById(req.params.id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product');
-    
+
     if (!quotation) {
       return res.status(404).json({ success: false, message: 'Quotation not found' });
     }
@@ -336,17 +342,25 @@ export const generateQuotationPDF = async (req, res) => {
     }
     
     const company = await Company.findOne();
-    
+
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const filename = `Quotation-${quotation.quotationNumber}.pdf`;
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    
+
     doc.pipe(res);
-    
+
     const pageWidth = doc.page.width;
     let yPos = 50;
+
+    // Professional color scheme
+    const primaryColor = '#1890ff';
+    const secondaryColor = '#52c41a';
+    const accentColor = '#faad14';
+    const darkColor = '#001529';
+    const lightGray = '#f0f2f5';
+    const borderColor = '#d9d9d9';
     
     if (company?.logo && fs.existsSync(company.logo)) {
       doc.image(company.logo, 50, yPos, { width: 120 });
@@ -382,21 +396,45 @@ export const generateQuotationPDF = async (req, res) => {
     doc.fontSize(10).font('Helvetica-Bold').text('Bill To:', 50, yPos);
     yPos += 15;
     doc.font('Helvetica');
-    doc.text(quotation.customer.name, 50, yPos);
-    yPos += 15;
-    if (quotation.customer.email) {
-      doc.text(quotation.customer.email, 50, yPos);
+
+    if (quotation.customer) {
+      doc.text(quotation.customer.name || 'N/A', 50, yPos);
+      yPos += 15;
+      if (quotation.customer.email) {
+        doc.text(quotation.customer.email, 50, yPos);
+        yPos += 15;
+      }
+      if (quotation.customer.phone) {
+        doc.text(quotation.customer.phone, 50, yPos);
+        yPos += 15;
+      }
+      if (quotation.customer.address) {
+        doc.text(quotation.customer.address, 50, yPos);
+        yPos += 15;
+      }
+    } else {
+      doc.text('[Customer Deleted]', 50, yPos);
       yPos += 15;
     }
-    if (quotation.customer.phone) {
-      doc.text(quotation.customer.phone, 50, yPos);
+
+    // Add supplier info if available
+    if (quotation.supplier) {
+      yPos += 10;
+      doc.fontSize(10).font('Helvetica-Bold').text('Supplier:', 50, yPos);
       yPos += 15;
-    }
-    if (quotation.customer.address) {
-      doc.text(quotation.customer.address, 50, yPos);
+      doc.font('Helvetica');
+      doc.text(quotation.supplier.name || 'N/A', 50, yPos);
       yPos += 15;
+      if (quotation.supplier.email) {
+        doc.text(quotation.supplier.email, 50, yPos);
+        yPos += 15;
+      }
+      if (quotation.supplier.phone) {
+        doc.text(quotation.supplier.phone, 50, yPos);
+        yPos += 15;
+      }
     }
-    
+
     yPos += 20;
     const tableTop = yPos;
     
@@ -522,12 +560,13 @@ export const convertToInvoice = async (req, res) => {
     
     const quotation = await Quotation.findById(req.params.id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product');
-    
+
     if (!quotation) {
       return res.status(404).json({ success: false, message: 'Quotation not found' });
     }
-    
+
     // ✅ FIXED: Allow conversion from approved OR sent status
     if (quotation.status !== 'approved' && quotation.status !== 'sent') {
       return res.status(400).json({ 
@@ -587,6 +626,7 @@ export const convertToInvoice = async (req, res) => {
     
     const populatedInvoice = await Invoice.findById(invoice._id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product')
       .lean();
     

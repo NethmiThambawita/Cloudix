@@ -12,3 +12,69 @@ body {
   font-family: 'Courier New', monospace;
   font-weight: 600;
 }
+
+/* Print styles - Hide navigation and adjust layout when printing */
+@media print {
+  /* Hide sidebar and header */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Remove left margin from main layout */
+  .main-layout {
+    margin-left: 0 !important;
+  }
+
+  /* Optimize content area for printing */
+  .print-content {
+    margin: 0 !important;
+    padding: 20px !important;
+    background: white !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure clean page breaks */
+  body {
+    background: white !important;
+  }
+
+  /* Remove ant design shadows and borders for cleaner print */
+  .ant-card,
+  .ant-table {
+    box-shadow: none !important;
+  }
+
+  /* Hide action buttons in print */
+  .ant-btn,
+  button {
+    display: none !important;
+  }
+
+  /* Keep only essential table content visible */
+  .ant-table-pagination {
+    display: none !important;
+  }
+
+  /* Optimize page breaks */
+  @page {
+    margin: 1cm;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+}

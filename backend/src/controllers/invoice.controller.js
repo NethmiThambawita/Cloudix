@@ -91,6 +91,7 @@ export const getAllInvoices = async (req, res) => {
     
     const invoices = await Invoice.find(query)
       .populate('customer', 'name email phone')
+      .populate('supplier', 'name email phone')
       .populate('items.product', 'name')
       .populate('taxes', 'name type value')
       .populate('createdBy', 'firstName lastName email')
@@ -124,6 +125,7 @@ export const getInvoiceById = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product')
       .populate('taxes', 'name type value')
       .populate('createdBy', 'firstName lastName email')
@@ -204,6 +206,7 @@ export const createInvoice = async (req, res) => {
 
     const populatedInvoice = await Invoice.findById(invoice._id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product')
       .populate('taxes')
       .populate('approvedBy', 'firstName lastName email')
@@ -275,6 +278,7 @@ export const updateInvoice = async (req, res) => {
       { new: true, runValidators: true }
     )
     .populate('customer')
+    .populate('supplier')
     .populate('items.product')
     .populate('taxes', 'name type value')
     .populate('approvedBy', 'firstName lastName email')
@@ -313,6 +317,7 @@ export const updateInvoiceStatus = async (req, res) => {
       { new: true }
     )
     .populate('customer')
+    .populate('supplier')
     .populate('items.product')
     .populate('approvedBy', 'firstName lastName email')
     .lean();
@@ -372,6 +377,7 @@ export const updateInvoiceApproval = async (req, res) => {
       { new: true }
     )
       .populate('customer')
+      .populate('supplier')
       .populate('items.product')
       .populate('approvedBy', 'firstName lastName email')
       .populate('createdBy', 'firstName lastName email')
@@ -411,8 +417,9 @@ export const generateInvoicePDF = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
       .populate('customer')
+      .populate('supplier')
       .populate('items.product');
-    
+
     if (!invoice) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
@@ -426,124 +433,173 @@ export const generateInvoicePDF = async (req, res) => {
     }
     
     const company = await Company.findOne();
-    
+
     const doc = new PDFDocument({ margin: 50, size: 'A4' });
     const filename = `Invoice-${invoice.invoiceNumber}.pdf`;
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    
+
     doc.pipe(res);
-    
+
     const pageWidth = doc.page.width;
     let yPos = 50;
+
+    // Professional color scheme
+    const primaryColor = '#1890ff';      // Blue
+    const secondaryColor = '#52c41a';    // Green
+    const accentColor = '#faad14';       // Gold
+    const darkColor = '#001529';         // Dark Blue
+    const lightGray = '#f0f2f5';
+    const borderColor = '#d9d9d9';
     
+    // Header background with gradient effect
+    doc.rect(0, 0, pageWidth, 120).fill(darkColor);
+
+    yPos = 30;
+
     if (company.logo && fs.existsSync(company.logo)) {
-      doc.image(company.logo, 50, yPos, { width: 120 });
-      yPos = 180;
+      doc.image(company.logo, 50, yPos, { width: 100, height: 60 });
     }
+
+    // Company name in white
+    doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold').text(company.name, 50, yPos + 70);
+
+    // INVOICE title with primary color background
+    doc.rect(400, 30, 145, 50).fill(primaryColor);
+    doc.fillColor('#ffffff').fontSize(28).font('Helvetica-Bold')
+       .text('INVOICE', 400, 45, { width: 145, align: 'center' });
+
+    // Invoice details box
+    yPos = 90;
+    doc.roundedRect(390, yPos, 160, 80, 5).fill('#ffffff');
+
+    doc.fillColor(darkColor).fontSize(9).font('Helvetica-Bold');
+    doc.text('Invoice #:', 400, yPos + 10);
+    doc.fillColor(primaryColor).font('Helvetica').text(invoice.invoiceNumber, 460, yPos + 10);
+
+    doc.fillColor(darkColor).font('Helvetica-Bold').text('Date:', 400, yPos + 25);
+    doc.fillColor('#000000').font('Helvetica').text(new Date(invoice.date).toLocaleDateString(), 460, yPos + 25);
+
+    doc.fillColor(darkColor).font('Helvetica-Bold').text('Due Date:', 400, yPos + 40);
+    doc.fillColor('#000000').font('Helvetica').text(invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A', 460, yPos + 40);
+
+    doc.fillColor(darkColor).font('Helvetica-Bold').text('Status:', 400, yPos + 55);
+    const statusColor = invoice.status === 'paid' ? secondaryColor : invoice.status === 'overdue' ? '#ff4d4f' : accentColor;
+    doc.fillColor(statusColor).font('Helvetica-Bold').text(invoice.status.toUpperCase(), 460, yPos + 55);
+
+    // Reset position after header
+    yPos = 180;
     
-    doc.fontSize(20).font('Helvetica-Bold').text(company.name, 50, yPos);
-    yPos += 25;
-    
-    doc.fontSize(10).font('Helvetica');
-    doc.text(company.address, 50, yPos);
-    yPos += 15;
-    doc.text(company.phone, 50, yPos);
-    yPos += 15;
-    doc.text(company.email, 50, yPos);
-    yPos += 15;
-    
-    if (company.taxNumber) {
-      doc.text(`Tax No: ${company.taxNumber}`, 50, yPos);
-      yPos += 15;
+    // Bill To section with colored box
+    doc.roundedRect(45, yPos, 240, 100, 5).stroke(borderColor);
+    doc.fillColor(primaryColor).fontSize(11).font('Helvetica-Bold').text('BILL TO', 55, yPos + 10);
+    doc.fillColor('#000000').fontSize(10).font('Helvetica-Bold');
+
+    if (invoice.customer) {
+      doc.text(invoice.customer.name || 'N/A', 55, yPos + 30);
+      doc.font('Helvetica').fontSize(9);
+      if (invoice.customer.email) {
+        doc.fillColor('#666666').text(invoice.customer.email, 55, yPos + 45);
+      }
+      if (invoice.customer.phone) {
+        doc.fillColor('#666666').text(invoice.customer.phone, 55, yPos + 58);
+      }
+      if (invoice.customer.address) {
+        doc.fillColor('#666666').text(invoice.customer.address, 55, yPos + 71, { width: 220 });
+      }
+    } else {
+      doc.fillColor('#ff4d4f').text('[Customer Deleted]', 55, yPos + 30);
     }
-    
-    const titleY = 50;
-    doc.fontSize(24).font('Helvetica-Bold').text('INVOICE', 400, titleY, { width: 150, align: 'right' });
-    
-    doc.fontSize(10).font('Helvetica');
-    doc.text(`Invoice #: ${invoice.invoiceNumber}`, 400, titleY + 35, { width: 150, align: 'right' });
-    doc.text(`Date: ${new Date(invoice.date).toLocaleDateString()}`, 400, titleY + 50, { width: 150, align: 'right' });
-    doc.text(`Due Date: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}`, 400, titleY + 65, { width: 150, align: 'right' });
-    doc.text(`Status: ${invoice.status.toUpperCase()}`, 400, titleY + 80, { width: 150, align: 'right' });
-    
-    yPos += 30;
-    doc.fontSize(10).font('Helvetica-Bold').text('Bill To:', 50, yPos);
-    yPos += 15;
-    doc.font('Helvetica');
-    doc.text(invoice.customer.name, 50, yPos);
-    yPos += 15;
-    if (invoice.customer.email) {
-      doc.text(invoice.customer.email, 50, yPos);
-      yPos += 15;
+
+    // Supplier section if available
+    if (invoice.supplier) {
+      doc.roundedRect(305, yPos, 240, 100, 5).stroke(borderColor);
+      doc.fillColor(secondaryColor).fontSize(11).font('Helvetica-Bold').text('SUPPLIER', 315, yPos + 10);
+      doc.fillColor('#000000').fontSize(10).font('Helvetica-Bold');
+      doc.text(invoice.supplier.name || 'N/A', 315, yPos + 30);
+      doc.font('Helvetica').fontSize(9);
+      if (invoice.supplier.email) {
+        doc.fillColor('#666666').text(invoice.supplier.email, 315, yPos + 45);
+      }
+      if (invoice.supplier.phone) {
+        doc.fillColor('#666666').text(invoice.supplier.phone, 315, yPos + 58);
+      }
     }
-    if (invoice.customer.phone) {
-      doc.text(invoice.customer.phone, 50, yPos);
-      yPos += 15;
-    }
-    if (invoice.customer.address) {
-      doc.text(invoice.customer.address, 50, yPos);
-      yPos += 15;
-    }
-    
-    yPos += 20;
+
+    yPos += 110;
+
     const tableTop = yPos;
+
+    // Table header with colored background
+    doc.rect(45, tableTop, 505, 25).fill(primaryColor);
+    doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold');
+    doc.text('#', 50, tableTop + 8, { width: 30 });
+    doc.text('Description', 80, tableTop + 8, { width: 200 });
+    doc.text('Qty', 280, tableTop + 8, { width: 40, align: 'center' });
+    doc.text('Unit Price', 320, tableTop + 8, { width: 80, align: 'right' });
+    doc.text('Disc %', 400, tableTop + 8, { width: 60, align: 'center' });
+    doc.text('Total', 460, tableTop + 8, { width: 90, align: 'right' });
     
-    // ✅ REMOVED tax column from items table
-    doc.fontSize(10).font('Helvetica-Bold');
-    doc.text('#', 50, tableTop, { width: 30 });
-    doc.text('Description', 80, tableTop, { width: 200 });
-    doc.text('Qty', 280, tableTop, { width: 40, align: 'center' });
-    doc.text('Unit Price', 320, tableTop, { width: 80, align: 'right' });
-    doc.text('Disc %', 400, tableTop, { width: 60, align: 'center' });
-    doc.text('Total', 460, tableTop, { width: 90, align: 'right' });
-    
-    doc.moveTo(50, tableTop + 15).lineTo(550, tableTop + 15).stroke();
-    
-    yPos = tableTop + 25;
-    doc.font('Helvetica');
-    
+    yPos = tableTop + 30;
+    doc.fillColor('#000000').font('Helvetica').fontSize(9);
+
     invoice.items.forEach((item, index) => {
       const itemTotal = formatCurrency(item.total, company.currencySymbol);
       const unitPrice = formatCurrency(item.unitPrice, company.currencySymbol);
       const discountPercent = item.discount || 0;
-      
-      doc.fontSize(9);
+
+      // Alternating row colors for better readability
+      if (index % 2 === 0) {
+        doc.rect(45, yPos - 3, 505, 22).fill('#fafafa').stroke();
+      }
+
+      doc.fillColor('#000000');
       doc.text(index + 1, 50, yPos, { width: 30 });
-      doc.text(item.description || item.product?.name, 80, yPos, { width: 200 });
+      doc.text(item.description || item.product?.name || 'N/A', 80, yPos, { width: 200 });
       doc.text(item.quantity.toString(), 280, yPos, { width: 40, align: 'center' });
       doc.text(unitPrice, 320, yPos, { width: 80, align: 'right' });
+      doc.fillColor(discountPercent > 0 ? secondaryColor : '#000000');
       doc.text(`${discountPercent}%`, 400, yPos, { width: 60, align: 'center' });
+      doc.fillColor('#000000').font('Helvetica-Bold');
       doc.text(itemTotal, 460, yPos, { width: 90, align: 'right' });
-      
-      yPos += 30;
+      doc.font('Helvetica');
+
+      yPos += 25;
     });
-    
-    doc.moveTo(50, yPos).lineTo(550, yPos).stroke();
-    yPos += 15;
-    
-    doc.fontSize(10).font('Helvetica');
-    doc.text('Subtotal:', 360, yPos);
-    doc.text(formatCurrency(invoice.subtotal, company.currencySymbol), 460, yPos, { width: 90, align: 'right' });
-    
+
+    // Bottom border of table
+    doc.moveTo(45, yPos).lineTo(550, yPos).stroke(borderColor);
+    yPos += 20;
+
+    // Summary box with styling
+    const summaryX = 350;
+    const summaryWidth = 200;
+
+    doc.fillColor('#000000').fontSize(10).font('Helvetica');
+    doc.text('Subtotal:', summaryX, yPos);
+    doc.font('Helvetica-Bold').text(formatCurrency(invoice.subtotal, company.currencySymbol), summaryX + 110, yPos, { width: 90, align: 'right' });
+
     if (invoice.discount && invoice.discount > 0) {
-      yPos += 20;
-      doc.text('Discount:', 360, yPos);
-      doc.text('-' + formatCurrency(invoice.discount, company.currencySymbol), 460, yPos, { width: 90, align: 'right' });
+      yPos += 18;
+      doc.fillColor(secondaryColor).font('Helvetica').text('Discount:', summaryX, yPos);
+      doc.text('-' + formatCurrency(invoice.discount, company.currencySymbol), summaryX + 110, yPos, { width: 90, align: 'right' });
     }
-    
-    // ✅ SHOW GLOBAL TAX
-    if (invoice.taxRate && invoice.taxRate > 0) {
-      yPos += 20;
-      doc.text(`Tax (${invoice.taxRate}%):`, 360, yPos);
-      doc.text(formatCurrency(invoice.taxAmount, company.currencySymbol), 460, yPos, { width: 90, align: 'right' });
+
+    if (invoice.taxAmount && invoice.taxAmount > 0) {
+      yPos += 18;
+      doc.fillColor('#000000').font('Helvetica').text('Tax:', summaryX, yPos);
+      doc.text(formatCurrency(invoice.taxAmount, company.currencySymbol), summaryX + 110, yPos, { width: 90, align: 'right' });
     }
-    
+
     yPos += 25;
-    doc.fontSize(12).font('Helvetica-Bold');
-    doc.text('Total:', 360, yPos);
-    doc.text(formatCurrency(invoice.total, company.currencySymbol), 460, yPos, { width: 90, align: 'right' });
+    // Total with colored background
+    doc.roundedRect(summaryX - 10, yPos - 5, summaryWidth + 10, 30, 5).fill(darkColor);
+    doc.fillColor('#ffffff').fontSize(12).font('Helvetica-Bold');
+    doc.text('TOTAL:', summaryX, yPos + 5);
+    doc.fontSize(14).text(formatCurrency(invoice.total, company.currencySymbol), summaryX + 110, yPos + 5, { width: 90, align: 'right' });
+
+    doc.fillColor('#000000');
     
     yPos += 40;
     

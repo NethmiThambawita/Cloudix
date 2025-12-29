@@ -333,13 +333,13 @@ function GRNForm() {
             <Row gutter={16}>
               <Col xs={24} md={8}>
                 <Form.Item
-                  label="Supplier"
+                  label="Supplier (Optional)"
                   name="supplier"
-                  rules={[{ required: true, message: 'Please select supplier' }]}
                 >
                   <Select
                     placeholder="Select supplier"
                     showSearch
+                    allowClear
                     filterOption={(input, option) =>
                       option.children.toLowerCase().includes(input.toLowerCase())
                     }

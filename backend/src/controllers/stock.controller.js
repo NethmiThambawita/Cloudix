@@ -347,16 +347,16 @@ export const getLowStockAlerts = async (req, res) => {
 export const getStockBalance = async (req, res) => {
   try {
     const { productId } = req.params;
-    
+
     const stock = await Stock.findOne({ product: productId })
       .populate('product', 'name category price');
 
     if (!stock) {
-      return res.json({ 
+      return res.json({
         product: productId,
         quantity: 0,
         isLowStock: false,
-        needsReorder: false 
+        needsReorder: false
       });
     }
 
@@ -373,5 +373,42 @@ export const getStockBalance = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching balance', error: error.message });
+  }
+};
+
+// Delete stock item (admin only)
+export const deleteStock = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const stock = await Stock.findById(id);
+    if (!stock) {
+      return res.status(404).json({ message: 'Stock item not found' });
+    }
+
+    // Check if stock has quantity - warn but allow deletion
+    if (stock.quantity > 0) {
+      // Create a transaction record for audit trail
+      const transaction = new StockTransaction({
+        transactionType: 'adjustment',
+        product: stock.product,
+        quantity: stock.quantity,
+        fromLocation: stock.location,
+        balanceBefore: stock.quantity,
+        balanceAfter: 0,
+        referenceType: 'Stock Deletion',
+        referenceNumber: `DEL-${Date.now()}`,
+        reason: 'Stock item deleted',
+        notes: `Stock item with ${stock.quantity} units was deleted`,
+        performedBy: req.user.id,
+        transactionDate: new Date()
+      });
+      await transaction.save();
+    }
+
+    await Stock.findByIdAndDelete(id);
+    res.json({ success: true, message: 'Stock item deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting stock', error: error.message });
   }
 };

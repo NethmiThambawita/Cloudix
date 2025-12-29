@@ -9,7 +9,8 @@ import {
   transferStock,
   getStockTransactions,
   getLowStockAlerts,
-  getStockBalance
+  getStockBalance,
+  deleteStock
 } from '../controllers/stock.controller.js';
 import { protect } from '../middleware/auth.js';
 import { authorize } from '../middleware/authorize.js';
@@ -51,5 +52,8 @@ router.post('/adjust', adjustStock);
 
 // Stock transfer
 router.post('/transfer', transferStock);
+
+// Delete stock item (admin only)
+router.delete('/:id', authorize('admin'), deleteStock);
 
 export default router;

@@ -165,6 +165,7 @@ function MainLayout() {
         trigger={null}
         collapsible
         collapsed={collapsed}
+        className="no-print"
         style={{
           overflow: 'auto',
           height: '100vh',
@@ -197,8 +198,9 @@ function MainLayout() {
         />
       </Sider>
 
-      <Layout style={{ marginLeft: collapsed ? 80 : 200, transition: 'margin-left 0.2s' }}>
+      <Layout style={{ marginLeft: collapsed ? 80 : 200, transition: 'margin-left 0.2s' }} className="main-layout">
         <Header
+          className="no-print"
           style={{
             padding: '0 24px',
             background: '#fff',
@@ -232,6 +234,7 @@ function MainLayout() {
         </Header>
 
         <Content
+          className="print-content"
           style={{
             margin: '24px',
             padding: 24,

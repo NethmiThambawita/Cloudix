@@ -1,20 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Tag, Card, Input, Select, Row, Col, Badge, Modal, Form, InputNumber, message } from 'antd';
-import { 
-  PlusOutlined, 
-  SearchOutlined, 
+import {
+  PlusOutlined,
+  SearchOutlined,
   FilterOutlined,
   WarningOutlined,
   EditOutlined,
   SwapOutlined,
-  MinusCircleOutlined
+  MinusCircleOutlined,
+  DeleteOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import api from '../api/axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+
+const { confirm } = Modal;
 
 const { Option } = Select;
 
 function StockManagement() {
+  const { user } = useSelector((state) => state.auth);
+  const isAdmin = user?.role === 'admin';
   const [stocks, setStocks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
@@ -88,6 +95,37 @@ function StockManagement() {
       console.error('Failed to adjust stock:', error);
       message.error('Failed to adjust stock');
     }
+  };
+
+  const handleDelete = (record) => {
+    const warningMessage = record.quantity > 0
+      ? `This stock item has ${record.quantity} units. Deleting will remove all stock records.`
+      : '';
+
+    confirm({
+      title: 'Delete Stock Item?',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>Are you sure you want to delete stock for <strong>{record.product?.name}</strong>?</p>
+          {warningMessage && <p style={{ color: '#ff4d4f' }}>{warningMessage}</p>}
+          <p>This action cannot be undone.</p>
+        </div>
+      ),
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      async onOk() {
+        try {
+          await api.delete(`/stock/${record._id}`);
+          message.success('Stock item deleted successfully');
+          fetchStocks();
+        } catch (error) {
+          console.error('Failed to delete stock:', error);
+          message.error(error.response?.data?.message || 'Failed to delete stock');
+        }
+      }
+    });
   };
 
   const columns = [
@@ -188,9 +226,9 @@ function StockManagement() {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 200,
+      width: 250,
       render: (_, record) => (
-        <Space>
+        <Space size="small" wrap>
           <Button
             size="small"
             icon={<EditOutlined />}
@@ -214,6 +252,16 @@ function StockManagement() {
           >
             Transfer
           </Button>
+          {isAdmin && (
+            <Button
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record)}
+            >
+              Delete
+            </Button>
+          )}
         </Space>
       )
     }

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, message, Space } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import api from '../api/axios';
 import { useSelector } from 'react-redux';
+
+const { confirm } = Modal;
 
 function Suppliers() {
   const { user } = useSelector((state) => state.auth);
@@ -48,18 +50,28 @@ function Suppliers() {
     setModalVisible(true);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (record) => {
     if (!isAdmin) {
       message.error('You do not have permission to delete suppliers');
       return;
     }
-    try {
-      await api.delete(`/suppliers/${id}`);
-      message.success('Supplier deleted');
-      fetchSuppliers();
-    } catch (error) {
-      message.error('Failed to delete supplier');
-    }
+    confirm({
+      title: 'Delete Supplier?',
+      icon: <ExclamationCircleOutlined />,
+      content: `Are you sure you want to Delete Supplier.`,
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      async onOk() {
+        try {
+          await api.delete(`/suppliers/${record._id}`);
+          message.success('Supplier deleted successfully');
+          fetchSuppliers();
+        } catch (error) {
+          message.error(error.response?.data?.message || 'Failed to delete supplier');
+        }
+      }
+    });
   };
 
   const handleSubmit = async (values) => {
@@ -91,7 +103,7 @@ function Suppliers() {
             render: (_, record) => (
               <Space>
                 <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-                <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record._id)} />
+                <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record)} />
               </Space>
             )
           }

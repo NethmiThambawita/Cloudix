@@ -17,7 +17,8 @@ import {
 import {
   DownloadOutlined,
   EditOutlined,
-  FilePdfOutlined
+  FilePdfOutlined,
+  PrinterOutlined
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/axios'; // ← FIXED: Use configured api instance
@@ -86,6 +87,18 @@ const QuotationView = () => {
     const token = localStorage.getItem('token');
     const pdfUrl = `${api.defaults.baseURL}/quotations/${id}/pdf?token=${token}`;
     window.open(pdfUrl, '_blank');
+  };
+
+  // Print PDF directly
+  const handlePrint = () => {
+    const token = localStorage.getItem('token');
+    const pdfUrl = `${api.defaults.baseURL}/quotations/${id}/pdf?token=${token}`;
+    const printWindow = window.open(pdfUrl, '_blank');
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
   };
 
   const handleEdit = () => {
@@ -181,14 +194,20 @@ const QuotationView = () => {
               <Button icon={<EditOutlined />} onClick={handleEdit}>
                 Edit
               </Button>
-              <Button 
-                icon={<FilePdfOutlined />} 
-                type="primary" 
+              <Button
+                icon={<FilePdfOutlined />}
+                type="primary"
                 onClick={handleViewPDF}
               >
                 View PDF
               </Button>
-              <Button 
+              <Button
+                icon={<PrinterOutlined />}
+                onClick={handlePrint}
+              >
+                Print
+              </Button>
+              <Button
                 onClick={() => setStatusModalVisible(true)}
               >
                 Update Status
