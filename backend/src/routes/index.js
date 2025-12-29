@@ -17,6 +17,7 @@ import userRoutes from './users.routes.js';
 // New routes for Stock Management and GRN
 import stockRoutes from './stock.routes.js';
 import grnRoutes from './grn.routes.js';
+import purchaseOrderRoutes from './purchaseOrder.routes.js';
 
 const router = express.Router();
 
@@ -36,6 +37,7 @@ router.use('/users', userRoutes);
 // Stock Management and GRN routes
 router.use('/stock', stockRoutes);
 router.use('/grn', grnRoutes);
+router.use('/purchase-orders', purchaseOrderRoutes);
 
 // Debug routes (enable in development only)
 if (process.env.NODE_ENV !== 'production') {

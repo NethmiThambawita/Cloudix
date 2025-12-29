@@ -2,6 +2,7 @@ import GRN from '../models/GRN.js';
 import Stock from '../models/Stock.js';
 import StockTransaction from '../models/StockTransaction.js';
 import Sequence from '../models/Sequence.js';
+import Product from '../models/Product.js';
 import PDFDocument from 'pdfkit';
 
 // Generate GRN number
@@ -324,9 +325,9 @@ export const updateStockFromGRN = async (req, res) => {
 
     for (const item of grn.items) {
       if (item.acceptedQuantity > 0) {
-        // Find or create stock record
-        let stock = await Stock.findOne({ product: item.product._id });
-        
+        // Find or create stock record at the GRN location
+        let stock = await Stock.findOne({ product: item.product._id, location: grn.location });
+
         if (!stock) {
           stock = new Stock({
             product: item.product._id,
@@ -349,6 +350,9 @@ export const updateStockFromGRN = async (req, res) => {
             quantity: item.acceptedQuantity,
             expiryDate: item.expiryDate,
             manufactureDate: item.manufactureDate,
+            poNumber: grn.purchaseOrder?.poNumber,
+            poDate: grn.purchaseOrder?.poDate,
+            grnNumber: grn.grnNumber,
             notes: item.inspectionNotes
           });
         }
@@ -366,6 +370,14 @@ export const updateStockFromGRN = async (req, res) => {
 
         await stock.save();
         stockUpdates.push(stock);
+
+        // Update product with last PO information
+        if (grn.purchaseOrder?.poNumber) {
+          await Product.findByIdAndUpdate(item.product._id, {
+            lastPONumber: grn.purchaseOrder.poNumber,
+            lastPODate: grn.purchaseOrder.poDate
+          });
+        }
 
         // Create stock transaction
         const transaction = new StockTransaction({

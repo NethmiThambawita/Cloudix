@@ -22,11 +22,16 @@ import Usermanagement from './pages/Usermanagement';
 //  Stock Management imports
 import StockManagement from './pages/StockManagement';
 import StockForm from './pages/StockForm';
+import StockTransfer from './pages/StockTransfer';
 //  GRN imports
 import GRNManagement from './pages/GRNManagement';
 import GRNForm from './pages/GRNForm';
 import GRNView from './pages/GRNView';
 import GRNInspectionForm from './pages/GRNInspectionForm';
+//  Purchase Order imports
+import PurchaseOrderManagement from './pages/PurchaseOrderManagement';
+import PurchaseOrderForm from './pages/PurchaseOrderForm';
+import PurchaseOrderView from './pages/PurchaseOrderView';
 import MainLayout from './components/layout/MainLayout';
 import PrivateRoute from './components/PrivateRoute';
 import RoleRoute from './components/RoleRoute';
@@ -74,12 +79,19 @@ function App() {
               <Route path="/stock" element={<RoleRoute allow={['admin', 'manager']}><StockManagement /></RoleRoute>} />
               <Route path="/stock/new" element={<RoleRoute allow={['admin', 'manager']}><StockForm /></RoleRoute>} />
               <Route path="/stock/edit/:id" element={<RoleRoute allow={['admin', 'manager']}><StockForm /></RoleRoute>} />
+              <Route path="/stock/transfer/:id" element={<RoleRoute allow={['admin', 'manager']}><StockTransfer /></RoleRoute>} />
 
               {/*  GRN Routes - All Users */}
               <Route path="/grn" element={<GRNManagement />} />
               <Route path="/grn/new" element={<GRNForm />} />
               <Route path="/grn/view/:id" element={<GRNView />} />
               <Route path="/grn/inspect/:id" element={<GRNInspectionForm />} />
+
+              {/*  Purchase Order Routes - All Users */}
+              <Route path="/purchase-orders" element={<PurchaseOrderManagement />} />
+              <Route path="/purchase-orders/new" element={<PurchaseOrderForm />} />
+              <Route path="/purchase-orders/edit/:id" element={<PurchaseOrderForm />} />
+              <Route path="/purchase-orders/view/:id" element={<PurchaseOrderView />} />
               
               {/* Quotation Routes */}
               <Route path="/quotations" element={<Quotations />} />

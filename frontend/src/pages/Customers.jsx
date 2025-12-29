@@ -11,6 +11,7 @@ function Customers() {
   const isAdmin = user?.role === 'admin';
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [form] = Form.useForm();
@@ -75,6 +76,12 @@ function Customers() {
   };
 
   const handleSubmit = async (values) => {
+    // Prevent duplicate submissions
+    if (submitting) {
+      return;
+    }
+
+    setSubmitting(true);
     try {
       if (editingCustomer) {
         await api.put(`/customers/${editingCustomer._id}`, values);
@@ -87,6 +94,8 @@ function Customers() {
       fetchCustomers();
     } catch (error) {
       message.error('Failed to save customer');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -135,6 +144,7 @@ function Customers() {
           open={modalVisible}
           onCancel={() => setModalVisible(false)}
           onOk={() => form.submit()}
+          confirmLoading={submitting}
         >
           <Form form={form} onFinish={handleSubmit} layout="vertical">
             <Form.Item name="name" label="Name" rules={[{ required: true }]}>

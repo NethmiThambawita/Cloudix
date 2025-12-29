@@ -4,8 +4,7 @@ const stockSchema = new mongoose.Schema({
   product: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Product',
-    required: true,
-    unique: true
+    required: true
   },
   quantity: {
     type: Number,
@@ -41,6 +40,9 @@ const stockSchema = new mongoose.Schema({
     quantity: Number,
     expiryDate: Date,
     manufactureDate: Date,
+    poNumber: String,
+    poDate: Date,
+    grnNumber: String,
     notes: String
   }],
   serialNumbers: [{
@@ -63,7 +65,8 @@ const stockSchema = new mongoose.Schema({
 });
 
 // Index for efficient queries
-// product index is automatic from unique: true
+// Compound unique index to allow same product in different locations
+stockSchema.index({ product: 1, location: 1 }, { unique: true });
 stockSchema.index({ location: 1 });
 
 // Virtual for low stock alert

@@ -14,7 +14,8 @@ import {
   BarChartOutlined,
   AppstoreOutlined,
   ShoppingCartOutlined,
-  TeamOutlined
+  TeamOutlined,
+  FileDoneOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -72,6 +73,13 @@ function MainLayout() {
           }
         ]
       : []),
+    // ✅ Purchase Orders - All Users
+    {
+      key: '/purchase-orders',
+      icon: <FileDoneOutlined />,
+      label: 'Purchase Orders (PO)',
+      onClick: () => navigate('/purchase-orders')
+    },
     // ✅ GRN - All Users
     {
       key: '/grn',

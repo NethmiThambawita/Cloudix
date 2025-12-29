@@ -9,6 +9,7 @@ function Products() {
   const isAdmin = user?.role === 'admin';
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [form] = Form.useForm();
@@ -63,6 +64,12 @@ function Products() {
   };
 
   const handleSubmit = async (values) => {
+    // Prevent duplicate submissions
+    if (submitting) {
+      return;
+    }
+
+    setSubmitting(true);
     try {
       if (editingProduct) {
         await api.put(`/products/${editingProduct._id}`, values);
@@ -75,6 +82,8 @@ function Products() {
       fetchProducts();
     } catch (error) {
       message.error('Failed to save product');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -123,6 +132,7 @@ function Products() {
           open={modalVisible}
           onCancel={() => setModalVisible(false)}
           onOk={() => form.submit()}
+          confirmLoading={submitting}
         >
         <Form form={form} onFinish={handleSubmit} layout="vertical">
           <Form.Item name="name" label="Name" rules={[{ required: true }]}>

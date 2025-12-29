@@ -11,6 +11,7 @@ function Suppliers() {
   const isAdmin = user?.role === 'admin';
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [form] = Form.useForm();
@@ -75,6 +76,12 @@ function Suppliers() {
   };
 
   const handleSubmit = async (values) => {
+    // Prevent duplicate submissions
+    if (submitting) {
+      return;
+    }
+
+    setSubmitting(true);
     try {
       if (editingSupplier) {
         await api.put(`/suppliers/${editingSupplier._id}`, values);
@@ -87,6 +94,8 @@ function Suppliers() {
       fetchSuppliers();
     } catch (error) {
       message.error('Failed to save supplier');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -135,6 +144,7 @@ function Suppliers() {
           open={modalVisible}
           onCancel={() => setModalVisible(false)}
           onOk={() => form.submit()}
+          confirmLoading={submitting}
         >
           <Form form={form} onFinish={handleSubmit} layout="vertical">
             <Form.Item name="name" label="Name" rules={[{ required: true }]}>

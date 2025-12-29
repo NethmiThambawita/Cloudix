@@ -12,7 +12,6 @@ function InvoiceForm() {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [customers, setCustomers] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [taxes, setTaxes] = useState([]); // Tax master list
   const [selectedTaxIds, setSelectedTaxIds] = useState([]);
@@ -25,7 +24,6 @@ function InvoiceForm() {
 
   useEffect(() => {
     fetchCustomers();
-    fetchSuppliers();
     fetchProducts();
     fetchTaxes(); // NEW: Load taxes
     loadDefaultTemplates();
@@ -62,14 +60,6 @@ function InvoiceForm() {
     }
   };
 
-  const fetchSuppliers = async () => {
-    try {
-      const response = await api.get('/suppliers');
-      setSuppliers(response.data.data || response.data || []);
-    } catch (error) {
-      message.error('Failed to load suppliers');
-    }
-  };
 
   const fetchProducts = async () => {
     try {
@@ -180,7 +170,6 @@ function InvoiceForm() {
     try {
       const invoiceData = {
         customer: values.customer,
-        supplier: values.supplier,
         date: values.date?.toDate() || new Date(),
         dueDate: values.dueDate?.toDate(),
         items: items.map(item => ({
@@ -318,34 +307,19 @@ function InvoiceForm() {
 
       <Card style={{ marginTop: 20 }}>
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <Form.Item
-              name="customer"
-              label="Customer"
-              rules={[{ required: true, message: 'Please select customer' }]}
-            >
-              <Select placeholder="Select customer" showSearch optionFilterProp="children">
-                {customers.map(c => (
-                  <Select.Option key={c._id} value={c._id}>
-                    {c.name}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
-
-            <Form.Item
-              name="supplier"
-              label="Supplier (Optional)"
-            >
-              <Select placeholder="Select supplier" showSearch optionFilterProp="children" allowClear>
-                {suppliers.map(s => (
-                  <Select.Option key={s._id} value={s._id}>
-                    {s.name}
-                  </Select.Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </div>
+          <Form.Item
+            name="customer"
+            label="Customer"
+            rules={[{ required: true, message: 'Please select customer' }]}
+          >
+            <Select placeholder="Select customer" showSearch optionFilterProp="children">
+              {customers.map(c => (
+                <Select.Option key={c._id} value={c._id}>
+                  {c.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <Form.Item name="date" label="Invoice Date" initialValue={dayjs()}>

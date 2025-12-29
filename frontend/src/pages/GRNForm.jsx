@@ -12,16 +12,13 @@ function GRNForm() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
-  const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchSuppliers();
-    fetchCustomers();
     fetchProducts();
   }, []);
 
@@ -95,10 +92,6 @@ function GRNForm() {
     setSelectedSupplier(supplier);
   };
 
-  const handleCustomerChange = (customerId) => {
-    const customer = customers.find(c => c._id === customerId);
-    setSelectedCustomer(customer);
-  };
 
   const addItem = () => {
     setItems([...items, {
@@ -157,7 +150,6 @@ function GRNForm() {
     try {
       const grnData = {
         supplier: values.supplier,
-        customer: values.customer,
         grnDate: values.grnDate?.format('YYYY-MM-DD') || new Date().toISOString(),
         purchaseOrder: {
           poNumber: values.poNumber,
@@ -354,28 +346,6 @@ function GRNForm() {
                 </Form.Item>
               </Col>
 
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Customer (Optional)"
-                  name="customer"
-                >
-                  <Select
-                    placeholder="Select customer"
-                    showSearch
-                    allowClear
-                    filterOption={(input, option) =>
-                      option.children.toLowerCase().includes(input.toLowerCase())
-                    }
-                    onChange={handleCustomerChange}
-                  >
-                    {customers.map(customer => (
-                      <Option key={customer._id} value={customer._id}>
-                        {customer.name}
-                      </Option>
-                    ))}
-                  </Select>
-                </Form.Item>
-              </Col>
 
               <Col xs={24} md={8}>
                 <Form.Item
@@ -404,20 +374,6 @@ function GRNForm() {
                 </Col>
               )}
 
-              {selectedCustomer && (
-                <Col xs={24} md={12}>
-                  <Card size="small" style={{ backgroundColor: '#f6ffed', borderColor: '#52c41a' }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: '#52c41a', marginBottom: 4 }}>Customer Info</div>
-                    <p style={{ margin: 0, fontSize: 12 }}>
-                      <strong>Contact:</strong> {selectedCustomer.phone || 'N/A'} |
-                      <strong> Email:</strong> {selectedCustomer.email || 'N/A'}
-                      {selectedCustomer.address && (
-                        <><br /><strong>Address:</strong> {selectedCustomer.address}</>
-                      )}
-                    </p>
-                  </Card>
-                </Col>
-              )}
             </Row>
 
             <Row gutter={16}>

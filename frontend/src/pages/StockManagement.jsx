@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Space, Tag, Card, Input, Select, Row, Col, Badge, Modal, Form, InputNumber, message } from 'antd';
+import { Table, Button, Space, Tag, Card, Input, Select, Row, Col, Modal, Form, InputNumber, message, Dropdown, notification } from 'antd';
 import {
   PlusOutlined,
   SearchOutlined,
@@ -9,7 +9,8 @@ import {
   SwapOutlined,
   MinusCircleOutlined,
   DeleteOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  MoreOutlined
 } from '@ant-design/icons';
 import api from '../api/axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -56,7 +57,30 @@ function StockManagement() {
       if (searchText) url += `search=${searchText}&`;
 
       const response = await api.get(url);
-      setStocks(response.data);
+      const stocksData = response.data;
+      setStocks(stocksData);
+
+      // Check for low stock items and show notification
+      const lowStockItems = stocksData.filter(stock => stock.quantity <= stock.minLevel);
+      const reorderItems = stocksData.filter(stock =>
+        stock.quantity <= stock.reorderLevel && stock.quantity > stock.minLevel
+      );
+
+      if (lowStockItems.length > 0) {
+        notification.warning({
+          message: 'Low Stock Alert',
+          description: `${lowStockItems.length} item(s) are below minimum stock level!`,
+          duration: 6,
+          placement: 'topRight'
+        });
+      } else if (reorderItems.length > 0) {
+        notification.info({
+          message: 'Reorder Alert',
+          description: `${reorderItems.length} item(s) need reordering.`,
+          duration: 5,
+          placement: 'topRight'
+        });
+      }
     } catch (error) {
       console.error('Failed to load stocks:', error);
       message.error('Failed to load stock data');
@@ -76,13 +100,13 @@ function StockManagement() {
 
   const handleAdjustSubmit = async (values) => {
     try {
-      if (!selectedStock?.product?._id) {
+      if (!selectedStock?._id) {
         message.error('Invalid stock item selected');
         return;
       }
 
       await api.post('/stock/adjust', {
-        productId: selectedStock.product._id,
+        stockId: selectedStock._id,
         quantity: values.type === 'damage' || values.type === 'loss' ? -Math.abs(values.quantity) : values.quantity,
         type: values.type,
         reason: values.reason,
@@ -128,6 +152,44 @@ function StockManagement() {
     });
   };
 
+  const getActionItems = (record) => {
+    const items = [
+      {
+        key: 'edit',
+        label: 'Edit',
+        icon: <EditOutlined />,
+        onClick: () => navigate(`/stock/edit/${record._id}`)
+      },
+      {
+        key: 'adjust',
+        label: 'Adjust Stock',
+        icon: <MinusCircleOutlined />,
+        onClick: () => handleAdjustStock(record),
+        disabled: !record.product
+      },
+      {
+        key: 'transfer',
+        label: 'Transfer',
+        icon: <SwapOutlined />,
+        onClick: () => navigate(`/stock/transfer/${record._id}`),
+        disabled: !record.product
+      }
+    ];
+
+    if (isAdmin) {
+      items.push({
+        key: 'delete',
+        label: 'Delete',
+        icon: <DeleteOutlined />,
+        danger: true,
+        onClick: () => handleDelete(record)
+      });
+    }
+
+    return items;
+  };
+
+
   const columns = [
     {
       title: 'Product',
@@ -166,20 +228,13 @@ function StockManagement() {
         const isLow = qty <= record.minLevel;
         const needsReorder = qty <= record.reorderLevel && qty > record.minLevel;
         return (
-          <Badge 
-            count={isLow ? 'Low' : needsReorder ? 'Reorder' : 0} 
-            style={{ 
-              backgroundColor: isLow ? '#f5222d' : needsReorder ? '#faad14' : '#52c41a' 
-            }}
-          >
-            <span style={{ 
-              fontWeight: 500, 
-              fontSize: 16,
-              color: isLow ? '#f5222d' : needsReorder ? '#faad14' : '#000'
-            }}>
-              {qty}
-            </span>
-          </Badge>
+          <span style={{
+            fontWeight: 500,
+            fontSize: 16,
+            color: isLow ? '#f5222d' : needsReorder ? '#faad14' : '#000'
+          }}>
+            {qty}
+          </span>
         );
       },
       sorter: (a, b) => a.quantity - b.quantity
@@ -226,43 +281,11 @@ function StockManagement() {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
-      width: 250,
+      width: 100,
       render: (_, record) => (
-        <Space size="small" wrap>
-          <Button
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => navigate(`/stock/edit/${record._id}`)}
-          >
-            Edit
-          </Button>
-          <Button
-            size="small"
-            icon={<MinusCircleOutlined />}
-            onClick={() => handleAdjustStock(record)}
-            disabled={!record.product}
-          >
-            Adjust
-          </Button>
-          <Button
-            size="small"
-            icon={<SwapOutlined />}
-            onClick={() => navigate(`/stock/transfer/${record._id}`)}
-            disabled={!record.product}
-          >
-            Transfer
-          </Button>
-          {isAdmin && (
-            <Button
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => handleDelete(record)}
-            >
-              Delete
-            </Button>
-          )}
-        </Space>
+        <Dropdown menu={{ items: getActionItems(record) }} trigger={['click']}>
+          <Button icon={<MoreOutlined />} />
+        </Dropdown>
       )
     }
   ];

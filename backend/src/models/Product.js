@@ -25,6 +25,13 @@ const productSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  lastPONumber: {
+    type: String,
+    trim: true
+  },
+  lastPODate: {
+    type: Date
+  },
   isActive: {
     type: Boolean,
     default: true

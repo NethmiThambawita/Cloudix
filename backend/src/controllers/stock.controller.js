@@ -51,18 +51,26 @@ export const getAllStock = async (req, res) => {
   }
 };
 
-// Get stock by product ID
+// Get stock by product ID (all locations)
 export const getStockByProduct = async (req, res) => {
   try {
     const { productId } = req.params;
-    const stock = await Stock.findOne({ product: productId })
+    const { location } = req.query;
+
+    let query = { product: productId };
+    if (location) {
+      query.location = location;
+    }
+
+    const stocks = await Stock.find(query)
       .populate('product', 'name category price description');
 
-    if (!stock) {
+    if (!stocks || stocks.length === 0) {
       return res.status(404).json({ message: 'Stock not found for this product' });
     }
 
-    res.json(stock);
+    // If location specified, return single stock, otherwise return array
+    res.json(location ? stocks[0] : stocks);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching stock', error: error.message });
   }
@@ -90,10 +98,12 @@ export const createStock = async (req, res) => {
   try {
     const { product, quantity, minLevel, reorderLevel, location, batchTracking, serialTracking } = req.body;
 
-    // Check if stock already exists for this product
-    const existingStock = await Stock.findOne({ product });
+    const stockLocation = location || 'Main Warehouse';
+
+    // Check if stock already exists for this product at this location
+    const existingStock = await Stock.findOne({ product, location: stockLocation });
     if (existingStock) {
-      return res.status(400).json({ message: 'Stock already exists for this product' });
+      return res.status(400).json({ message: 'Stock already exists for this product at this location' });
     }
 
     // Verify product exists
@@ -107,7 +117,7 @@ export const createStock = async (req, res) => {
       quantity: quantity || 0,
       minLevel: minLevel || 10,
       reorderLevel: reorderLevel || 20,
-      location: location || 'Main Warehouse',
+      location: stockLocation,
       batchTracking: batchTracking || false,
       serialTracking: serialTracking || false
     });
@@ -196,11 +206,11 @@ export const updateStock = async (req, res) => {
 // Stock adjustment (damage, loss, expiry, manual correction)
 export const adjustStock = async (req, res) => {
   try {
-    const { productId, quantity, type, reason, notes, batchNumber, serialNumbers } = req.body;
+    const { stockId, quantity, type, reason, notes, batchNumber, serialNumbers } = req.body;
 
-    const stock = await Stock.findOne({ product: productId });
+    const stock = await Stock.findById(stockId);
     if (!stock) {
-      return res.status(404).json({ message: 'Stock not found for this product' });
+      return res.status(404).json({ message: 'Stock not found' });
     }
 
     const balanceBefore = stock.quantity;
@@ -217,7 +227,7 @@ export const adjustStock = async (req, res) => {
     // Create transaction
     const transaction = new StockTransaction({
       transactionType: type || 'adjustment',
-      product: productId,
+      product: stock.product,
       quantity: Math.abs(quantity),
       toLocation: quantity > 0 ? stock.location : null,
       fromLocation: quantity < 0 ? stock.location : null,
@@ -246,41 +256,69 @@ export const transferStock = async (req, res) => {
   try {
     const { productId, quantity, fromLocation, toLocation, notes } = req.body;
 
-    // This is a simplified version - in a real system, you'd have separate stock records per location
-    const stock = await Stock.findOne({ product: productId, location: fromLocation });
-    if (!stock) {
+    // Find stock at source location
+    const sourceStock = await Stock.findOne({ product: productId, location: fromLocation }).populate('product');
+    if (!sourceStock) {
       return res.status(404).json({ message: 'Stock not found at source location' });
     }
 
-    if (stock.quantity < quantity) {
+    if (sourceStock.quantity < quantity) {
       return res.status(400).json({ message: 'Insufficient stock for transfer' });
     }
 
-    const balanceBefore = stock.quantity;
-    const balanceAfter = balanceBefore - quantity;
+    // Reduce quantity from source location
+    const sourceBalanceBefore = sourceStock.quantity;
+    sourceStock.quantity = sourceBalanceBefore - quantity;
+    await sourceStock.save();
 
-    stock.quantity = balanceAfter;
-    await stock.save();
+    // Find or create stock at destination location
+    let destinationStock = await Stock.findOne({ product: productId, location: toLocation });
 
-    // Create transaction
+    if (!destinationStock) {
+      // Create new stock record at destination location
+      destinationStock = new Stock({
+        product: productId,
+        quantity: quantity,
+        location: toLocation,
+        minLevel: sourceStock.minLevel,
+        reorderLevel: sourceStock.reorderLevel,
+        batchTracking: sourceStock.batchTracking,
+        serialTracking: sourceStock.serialTracking,
+        notes: `Transferred from ${fromLocation}`
+      });
+      await destinationStock.save();
+    } else {
+      // Update existing stock at destination location
+      destinationStock.quantity += quantity;
+      await destinationStock.save();
+    }
+
+    // Create transaction for the transfer
+    const referenceNumber = `TRF-${Date.now()}`;
     const transaction = new StockTransaction({
       transactionType: 'transfer',
       product: productId,
       quantity,
       fromLocation,
       toLocation,
-      balanceBefore,
-      balanceAfter,
+      balanceBefore: sourceBalanceBefore,
+      balanceAfter: sourceStock.quantity,
       referenceType: 'Transfer',
-      referenceNumber: `TRF-${Date.now()}`,
+      referenceNumber,
       notes,
       performedBy: req.user.id,
       transactionDate: new Date()
     });
     await transaction.save();
 
-    const updatedStock = await Stock.findById(stock._id).populate('product');
-    res.json({ stock: updatedStock, transaction });
+    const updatedSourceStock = await Stock.findById(sourceStock._id).populate('product');
+    const updatedDestinationStock = await Stock.findById(destinationStock._id).populate('product');
+
+    res.json({
+      sourceStock: updatedSourceStock,
+      destinationStock: updatedDestinationStock,
+      transaction
+    });
   } catch (error) {
     res.status(500).json({ message: 'Error transferring stock', error: error.message });
   }
@@ -343,33 +381,49 @@ export const getLowStockAlerts = async (req, res) => {
   }
 };
 
-// Get stock balance for a specific product
+// Get stock balance for a specific product (across all locations or specific location)
 export const getStockBalance = async (req, res) => {
   try {
     const { productId } = req.params;
+    const { location } = req.query;
 
-    const stock = await Stock.findOne({ product: productId })
+    let query = { product: productId };
+    if (location) {
+      query.location = location;
+    }
+
+    const stocks = await Stock.find(query)
       .populate('product', 'name category price');
 
-    if (!stock) {
+    if (!stocks || stocks.length === 0) {
       return res.json({
         product: productId,
-        quantity: 0,
+        totalQuantity: 0,
+        locations: [],
         isLowStock: false,
         needsReorder: false
       });
     }
 
-    res.json({
-      product: stock.product,
+    // Calculate total quantity across all locations
+    const totalQuantity = stocks.reduce((sum, stock) => sum + stock.quantity, 0);
+
+    // Get location-wise breakdown
+    const locationBreakdown = stocks.map(stock => ({
+      location: stock.location,
       quantity: stock.quantity,
       minLevel: stock.minLevel,
       reorderLevel: stock.reorderLevel,
-      location: stock.location,
       isLowStock: stock.quantity <= stock.minLevel,
-      needsReorder: stock.quantity <= stock.reorderLevel,
-      batches: stock.batches,
-      serialNumbers: stock.serialNumbers
+      needsReorder: stock.quantity <= stock.reorderLevel
+    }));
+
+    res.json({
+      product: stocks[0].product,
+      totalQuantity,
+      locations: locationBreakdown,
+      isLowStock: stocks.some(s => s.quantity <= s.minLevel),
+      needsReorder: stocks.some(s => s.quantity <= s.reorderLevel)
     });
   } catch (error) {
     res.status(500).json({ message: 'Error fetching balance', error: error.message });
