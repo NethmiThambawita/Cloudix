@@ -3,6 +3,7 @@ import express from 'express';
 // Import all route modules
 import authRoutes from './auth.routes.js';
 import customerRoutes from './customer.routes.js';
+import supplierRoutes from './supplier.routes.js';
 import productRoutes from './product.routes.js';
 import quotationRoutes from './quotation.routes.js';
 import invoiceRoutes from './invoice.routes.js';
@@ -22,6 +23,7 @@ const router = express.Router();
 // Register routes
 router.use('/auth', authRoutes);
 router.use('/customers', customerRoutes);
+router.use('/suppliers', supplierRoutes);
 router.use('/products', productRoutes);
 router.use('/quotations', quotationRoutes);
 router.use('/invoices', invoiceRoutes);

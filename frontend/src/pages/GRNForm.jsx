@@ -12,21 +12,24 @@ function GRNForm() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [items, setItems] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchSuppliers();
+    fetchCustomers();
     fetchProducts();
   }, []);
 
   const fetchSuppliers = async () => {
     try {
-      const response = await api.get('/customers'); // Suppliers are stored as customers
+      const response = await api.get('/suppliers');
       console.log('Suppliers response:', response.data);
-      
+
       // Handle different response structures
       if (Array.isArray(response.data)) {
         setSuppliers(response.data);
@@ -40,6 +43,27 @@ function GRNForm() {
       console.error('Failed to load suppliers:', error);
       message.error('Failed to load suppliers');
       setSuppliers([]);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await api.get('/customers');
+      console.log('Customers response:', response.data);
+
+      // Handle different response structures
+      if (Array.isArray(response.data)) {
+        setCustomers(response.data);
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        setCustomers(response.data.data);
+      } else {
+        console.error('Unexpected customers response:', response.data);
+        setCustomers([]);
+      }
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+      message.error('Failed to load customers');
+      setCustomers([]);
     }
   };
 
@@ -69,6 +93,11 @@ function GRNForm() {
   const handleSupplierChange = (supplierId) => {
     const supplier = suppliers.find(s => s._id === supplierId);
     setSelectedSupplier(supplier);
+  };
+
+  const handleCustomerChange = (customerId) => {
+    const customer = customers.find(c => c._id === customerId);
+    setSelectedCustomer(customer);
   };
 
   const addItem = () => {
@@ -128,6 +157,7 @@ function GRNForm() {
     try {
       const grnData = {
         supplier: values.supplier,
+        customer: values.customer,
         grnDate: values.grnDate?.format('YYYY-MM-DD') || new Date().toISOString(),
         purchaseOrder: {
           poNumber: values.poNumber,
@@ -299,9 +329,9 @@ function GRNForm() {
             location: 'Main Warehouse'
           }}
         >
-          <Card title="Supplier & PO Details" style={{ marginBottom: 16 }}>
+          <Card title="Supplier, Customer & PO Details" style={{ marginBottom: 16 }}>
             <Row gutter={16}>
-              <Col xs={24} md={12}>
+              <Col xs={24} md={8}>
                 <Form.Item
                   label="Supplier"
                   name="supplier"
@@ -324,7 +354,30 @@ function GRNForm() {
                 </Form.Item>
               </Col>
 
-              <Col xs={24} md={12}>
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Customer (Optional)"
+                  name="customer"
+                >
+                  <Select
+                    placeholder="Select customer"
+                    showSearch
+                    allowClear
+                    filterOption={(input, option) =>
+                      option.children.toLowerCase().includes(input.toLowerCase())
+                    }
+                    onChange={handleCustomerChange}
+                  >
+                    {customers.map(customer => (
+                      <Option key={customer._id} value={customer._id}>
+                        {customer.name}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={8}>
                 <Form.Item
                   label="GRN Date"
                   name="grnDate"
@@ -335,17 +388,37 @@ function GRNForm() {
               </Col>
             </Row>
 
-            {selectedSupplier && (
-              <Card size="small" style={{ marginBottom: 16, backgroundColor: '#f5f5f5' }}>
-                <p style={{ margin: 0 }}>
-                  <strong>Contact:</strong> {selectedSupplier.phone || 'N/A'} | 
-                  <strong> Email:</strong> {selectedSupplier.email || 'N/A'}
-                  {selectedSupplier.address && (
-                    <><br /><strong>Address:</strong> {selectedSupplier.address}</>
-                  )}
-                </p>
-              </Card>
-            )}
+            <Row gutter={16}>
+              {selectedSupplier && (
+                <Col xs={24} md={12}>
+                  <Card size="small" style={{ backgroundColor: '#f0f9ff', borderColor: '#1890ff' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1890ff', marginBottom: 4 }}>Supplier Info</div>
+                    <p style={{ margin: 0, fontSize: 12 }}>
+                      <strong>Contact:</strong> {selectedSupplier.phone || 'N/A'} |
+                      <strong> Email:</strong> {selectedSupplier.email || 'N/A'}
+                      {selectedSupplier.address && (
+                        <><br /><strong>Address:</strong> {selectedSupplier.address}</>
+                      )}
+                    </p>
+                  </Card>
+                </Col>
+              )}
+
+              {selectedCustomer && (
+                <Col xs={24} md={12}>
+                  <Card size="small" style={{ backgroundColor: '#f6ffed', borderColor: '#52c41a' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#52c41a', marginBottom: 4 }}>Customer Info</div>
+                    <p style={{ margin: 0, fontSize: 12 }}>
+                      <strong>Contact:</strong> {selectedCustomer.phone || 'N/A'} |
+                      <strong> Email:</strong> {selectedCustomer.email || 'N/A'}
+                      {selectedCustomer.address && (
+                        <><br /><strong>Address:</strong> {selectedCustomer.address}</>
+                      )}
+                    </p>
+                  </Card>
+                </Col>
+              )}
+            </Row>
 
             <Row gutter={16}>
               <Col xs={24} md={8}>

@@ -17,7 +17,74 @@ const generateGRNNumber = async (year) => {
 // Get all GRNs
 export const getAllGRNs = async (req, res) => {
   try {
-    const { status, supplier, startDate, endDate, search } = req.query;
+    const { status, supplier, customer, startDate, endDate, search } = req.query;
+
+    // Use aggregation pipeline when search is provided to search across related collections
+    if (search) {
+      const pipeline = [];
+
+      // Lookup supplier
+      pipeline.push({
+        $lookup: {
+          from: 'suppliers',
+          localField: 'supplier',
+          foreignField: '_id',
+          as: 'supplierData'
+        }
+      });
+
+      // Lookup customer
+      pipeline.push({
+        $lookup: {
+          from: 'customers',
+          localField: 'customer',
+          foreignField: '_id',
+          as: 'customerData'
+        }
+      });
+
+      // Build match conditions
+      const matchConditions = {
+        $or: [
+          { grnNumber: { $regex: search, $options: 'i' } },
+          { 'purchaseOrder.poNumber': { $regex: search, $options: 'i' } },
+          { 'invoiceDetails.invoiceNumber': { $regex: search, $options: 'i' } },
+          { 'supplierData.name': { $regex: search, $options: 'i' } },
+          { 'customerData.name': { $regex: search, $options: 'i' } }
+        ]
+      };
+
+      // Add other filters
+      if (status) matchConditions.status = status;
+      if (supplier) matchConditions.supplier = supplier;
+      if (customer) matchConditions.customer = customer;
+      if (startDate || endDate) {
+        matchConditions.grnDate = {};
+        if (startDate) matchConditions.grnDate.$gte = new Date(startDate);
+        if (endDate) matchConditions.grnDate.$lte = new Date(endDate);
+      }
+
+      pipeline.push({ $match: matchConditions });
+
+      // Sort
+      pipeline.push({ $sort: { grnDate: -1 } });
+
+      const grns = await GRN.aggregate(pipeline);
+
+      // Populate remaining fields
+      await GRN.populate(grns, [
+        { path: 'supplier', select: 'name email phone' },
+        { path: 'customer', select: 'name email phone' },
+        { path: 'items.product', select: 'name category' },
+        { path: 'createdBy', select: 'name email' },
+        { path: 'inspectedBy', select: 'name email' },
+        { path: 'approvedBy', select: 'name email' }
+      ]);
+
+      return res.json(grns);
+    }
+
+    // Use regular query when no search
     let query = {};
 
     if (status) {
@@ -28,22 +95,19 @@ export const getAllGRNs = async (req, res) => {
       query.supplier = supplier;
     }
 
+    if (customer) {
+      query.customer = customer;
+    }
+
     if (startDate || endDate) {
       query.grnDate = {};
       if (startDate) query.grnDate.$gte = new Date(startDate);
       if (endDate) query.grnDate.$lte = new Date(endDate);
     }
 
-    if (search) {
-      query.$or = [
-        { grnNumber: { $regex: search, $options: 'i' } },
-        { 'purchaseOrder.poNumber': { $regex: search, $options: 'i' } },
-        { 'invoiceDetails.invoiceNumber': { $regex: search, $options: 'i' } }
-      ];
-    }
-
     const grns = await GRN.find(query)
       .populate('supplier', 'name email phone')
+      .populate('customer', 'name email phone')
       .populate('items.product', 'name category')
       .populate('createdBy', 'name email')
       .populate('inspectedBy', 'name email')
@@ -62,6 +126,7 @@ export const getGRNById = async (req, res) => {
     const { id } = req.params;
     const grn = await GRN.findById(id)
       .populate('supplier', 'name email phone address')
+      .populate('customer', 'name email phone address')
       .populate('items.product', 'name category price')
       .populate('createdBy', 'name email')
       .populate('inspectedBy', 'name email')
@@ -81,14 +146,15 @@ export const getGRNById = async (req, res) => {
 // Create GRN
 export const createGRN = async (req, res) => {
   try {
-    const { 
-      purchaseOrder, 
-      supplier, 
-      grnDate, 
-      deliveryNote, 
-      items, 
-      location, 
-      notes 
+    const {
+      purchaseOrder,
+      supplier,
+      customer,
+      grnDate,
+      deliveryNote,
+      items,
+      location,
+      notes
     } = req.body;
 
     const year = new Date(grnDate || Date.now()).getFullYear();
@@ -98,6 +164,7 @@ export const createGRN = async (req, res) => {
       grnNumber,
       purchaseOrder,
       supplier,
+      customer,
       grnDate: grnDate || Date.now(),
       deliveryNote,
       items: items.map(item => ({
@@ -115,6 +182,7 @@ export const createGRN = async (req, res) => {
     await grn.save();
     const populatedGRN = await GRN.findById(grn._id)
       .populate('supplier', 'name email phone')
+      .populate('customer', 'name email phone')
       .populate('items.product', 'name category')
       .populate('createdBy', 'name email');
 
@@ -145,6 +213,7 @@ export const updateGRN = async (req, res) => {
 
     const updatedGRN = await GRN.findById(id)
       .populate('supplier', 'name email phone')
+      .populate('customer', 'name email phone')
       .populate('items.product', 'name category')
       .populate('createdBy', 'name email')
       .populate('inspectedBy', 'name email')
@@ -191,6 +260,7 @@ export const inspectGRN = async (req, res) => {
 
     const updatedGRN = await GRN.findById(id)
       .populate('supplier', 'name email phone')
+      .populate('customer', 'name email phone')
       .populate('items.product', 'name category')
       .populate('inspectedBy', 'name email');
 
@@ -220,6 +290,7 @@ export const approveGRN = async (req, res) => {
 
     const updatedGRN = await GRN.findById(id)
       .populate('supplier', 'name email phone')
+      .populate('customer', 'name email phone')
       .populate('items.product', 'name category')
       .populate('approvedBy', 'name email');
 
@@ -360,6 +431,7 @@ export const matchInvoice = async (req, res) => {
 
     const updatedGRN = await GRN.findById(id)
       .populate('supplier', 'name email phone')
+      .populate('customer', 'name email phone')
       .populate('items.product', 'name category');
 
     res.json(updatedGRN);
@@ -392,7 +464,7 @@ export const deleteGRN = async (req, res) => {
 // Get GRN reports/statistics
 export const getGRNReports = async (req, res) => {
   try {
-    const { startDate, endDate, supplier } = req.query;
+    const { startDate, endDate, supplier, customer } = req.query;
     let query = {};
 
     if (startDate || endDate) {
@@ -405,8 +477,13 @@ export const getGRNReports = async (req, res) => {
       query.supplier = supplier;
     }
 
+    if (customer) {
+      query.customer = customer;
+    }
+
     const grns = await GRN.find(query)
       .populate('supplier', 'name')
+      .populate('customer', 'name')
       .populate('items.product', 'name category');
 
     // Calculate statistics
@@ -450,6 +527,7 @@ export const generateGRNPDF = async (req, res) => {
 
     const grn = await GRN.findById(id)
       .populate('supplier', 'name email phone address')
+      .populate('customer', 'name email phone address')
       .populate('items.product', 'name category')
       .populate('createdBy', 'firstName lastName')
       .populate('inspectedBy', 'firstName lastName')

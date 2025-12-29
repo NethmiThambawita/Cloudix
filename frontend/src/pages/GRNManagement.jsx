@@ -22,18 +22,52 @@ function GRNManagement() {
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('');
+  const [customerFilter, setCustomerFilter] = useState('');
+  const [suppliers, setSuppliers] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [dateRange, setDateRange] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
+    fetchSuppliers();
+    fetchCustomers();
     fetchGRNs();
   }, []);
+
+  const fetchSuppliers = async () => {
+    try {
+      const response = await api.get('/suppliers');
+      if (Array.isArray(response.data)) {
+        setSuppliers(response.data);
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        setSuppliers(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load suppliers:', error);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await api.get('/customers');
+      if (Array.isArray(response.data)) {
+        setCustomers(response.data);
+      } else if (response.data.data && Array.isArray(response.data.data)) {
+        setCustomers(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+    }
+  };
 
   const fetchGRNs = async () => {
     setLoading(true);
     try {
       let url = '/grn?';
       if (statusFilter) url += `status=${statusFilter}&`;
+      if (supplierFilter) url += `supplier=${supplierFilter}&`;
+      if (customerFilter) url += `customer=${customerFilter}&`;
       if (searchText) url += `search=${searchText}&`;
       if (dateRange && dateRange[0] && dateRange[1]) {
         url += `startDate=${dateRange[0].format('YYYY-MM-DD')}&endDate=${dateRange[1].format('YYYY-MM-DD')}&`;
@@ -126,7 +160,14 @@ function GRNManagement() {
       title: 'Supplier',
       dataIndex: ['supplier', 'name'],
       key: 'supplier',
-      width: 180
+      width: 150
+    },
+    {
+      title: 'Customer',
+      dataIndex: ['customer', 'name'],
+      key: 'customer',
+      width: 150,
+      render: (name) => name || '-'
     },
     {
       title: 'GRN Date',
@@ -274,19 +315,61 @@ function GRNManagement() {
         </div>
 
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={24} sm={12} md={8}>
+          <Col xs={24} sm={12} md={5}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Search</div>
             <Input
-              placeholder="Search GRN, PO, or Invoice..."
+              placeholder="Search by GRN, PO, Supplier, Customer..."
               prefix={<SearchOutlined />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onPressEnter={handleSearch}
             />
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={4}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Supplier</div>
             <Select
               style={{ width: '100%' }}
-              placeholder="Filter by status"
+              placeholder="Select supplier"
+              allowClear
+              showSearch
+              value={supplierFilter}
+              onChange={setSupplierFilter}
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {suppliers.map(supplier => (
+                <Option key={supplier._id} value={supplier._id}>
+                  {supplier.name}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={4}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Customer</div>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Select customer"
+              allowClear
+              showSearch
+              value={customerFilter}
+              onChange={setCustomerFilter}
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {customers.map(customer => (
+                <Option key={customer._id} value={customer._id}>
+                  {customer.name}
+                </Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={4}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Status</div>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Select status"
               allowClear
               value={statusFilter}
               onChange={setStatusFilter}
@@ -298,7 +381,8 @@ function GRNManagement() {
               <Option value="rejected">Rejected</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={5}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Date Range</div>
             <RangePicker
               style={{ width: '100%' }}
               value={dateRange}
@@ -306,10 +390,11 @@ function GRNManagement() {
               format="DD/MM/YYYY"
             />
           </Col>
-          <Col xs={24} sm={12} md={4}>
-            <Button 
-              type="primary" 
-              icon={<SearchOutlined />} 
+          <Col xs={24} sm={12} md={2}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: 'transparent' }}>.</div>
+            <Button
+              type="primary"
+              icon={<SearchOutlined />}
               onClick={handleSearch}
               style={{ width: '100%' }}
             >

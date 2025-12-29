@@ -5,7 +5,7 @@ import Product from '../models/Product.js';
 // Get all stock items
 export const getAllStock = async (req, res) => {
   try {
-    const { location, lowStock, needsReorder, search } = req.query;
+    const { location, lowStock, needsReorder, search, category } = req.query;
     let query = { isActive: true };
 
     if (location) {
@@ -28,11 +28,21 @@ export const getAllStock = async (req, res) => {
       filteredStocks = filteredStocks.filter(stock => stock.quantity <= stock.reorderLevel);
     }
 
-    // Search by product name
-    if (search) {
-      filteredStocks = filteredStocks.filter(stock => 
-        stock.product.name.toLowerCase().includes(search.toLowerCase())
+    // Filter by category
+    if (category) {
+      filteredStocks = filteredStocks.filter(stock =>
+        stock.product?.category?.toLowerCase() === category.toLowerCase()
       );
+    }
+
+    // Search by product name or category
+    if (search) {
+      filteredStocks = filteredStocks.filter(stock => {
+        const name = stock.product?.name?.toLowerCase() || '';
+        const cat = stock.product?.category?.toLowerCase() || '';
+        const searchLower = search.toLowerCase();
+        return name.includes(searchLower) || cat.includes(searchLower);
+      });
     }
 
     res.json(filteredStocks);

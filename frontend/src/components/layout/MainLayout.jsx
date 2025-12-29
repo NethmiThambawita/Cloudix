@@ -13,7 +13,8 @@ import {
   PercentageOutlined,
   BarChartOutlined,
   AppstoreOutlined,
-  ShoppingCartOutlined
+  ShoppingCartOutlined,
+  TeamOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -47,6 +48,12 @@ function MainLayout() {
       icon: <UserOutlined />,
       label: 'Customers',
       onClick: () => navigate('/customers')
+    },
+    {
+      key: '/suppliers',
+      icon: <TeamOutlined />,
+      label: 'Suppliers',
+      onClick: () => navigate('/suppliers')
     },
     {
       key: '/products',

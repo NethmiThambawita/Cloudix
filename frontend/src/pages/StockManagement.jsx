@@ -19,6 +19,7 @@ function StockManagement() {
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [stockFilter, setStockFilter] = useState('');
   const [adjustModalVisible, setAdjustModalVisible] = useState(false);
   const [selectedStock, setSelectedStock] = useState(null);
@@ -42,6 +43,7 @@ function StockManagement() {
     try {
       let url = '/stock?';
       if (locationFilter) url += `location=${locationFilter}&`;
+      if (categoryFilter) url += `category=${categoryFilter}&`;
       if (stockFilter === 'low') url += `lowStock=true&`;
       if (stockFilter === 'reorder') url += `needsReorder=true&`;
       if (searchText) url += `search=${searchText}&`;
@@ -232,19 +234,21 @@ function StockManagement() {
         </div>
 
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-          <Col xs={24} sm={12} md={8}>
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Search</div>
             <Input
-              placeholder="Search products..."
+              placeholder="Search by product name or category..."
               prefix={<SearchOutlined />}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onPressEnter={handleSearch}
             />
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={4}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Location</div>
             <Select
               style={{ width: '100%' }}
-              placeholder="Filter by location"
+              placeholder="Select location"
               allowClear
               value={locationFilter}
               onChange={setLocationFilter}
@@ -254,10 +258,29 @@ function StockManagement() {
               ))}
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={4}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Category</div>
             <Select
               style={{ width: '100%' }}
-              placeholder="Filter by status"
+              placeholder="Select category"
+              allowClear
+              showSearch
+              value={categoryFilter}
+              onChange={setCategoryFilter}
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
+            >
+              {Array.from(new Set(stocks.map(s => s.product?.category).filter(Boolean))).map(cat => (
+                <Option key={cat} value={cat}>{cat}</Option>
+              ))}
+            </Select>
+          </Col>
+          <Col xs={24} sm={12} md={4}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: '#666' }}>Stock Status</div>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Select status"
               allowClear
               value={stockFilter}
               onChange={setStockFilter}
@@ -267,15 +290,29 @@ function StockManagement() {
               <Option value="reorder">Needs Reorder</Option>
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={4}>
-            <Button 
-              type="primary" 
-              icon={<SearchOutlined />} 
-              onClick={handleSearch}
-              style={{ width: '100%' }}
-            >
-              Search
-            </Button>
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ marginBottom: 4, fontSize: 12, fontWeight: 500, color: 'transparent' }}>.</div>
+            <Space style={{ width: '100%' }}>
+              <Button
+                type="primary"
+                icon={<SearchOutlined />}
+                onClick={handleSearch}
+                style={{ flex: 1 }}
+              >
+                Search
+              </Button>
+              <Button
+                onClick={() => {
+                  setSearchText('');
+                  setLocationFilter('');
+                  setCategoryFilter('');
+                  setStockFilter('');
+                  fetchStocks();
+                }}
+              >
+                Clear
+              </Button>
+            </Space>
           </Col>
         </Row>
 

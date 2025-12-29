@@ -56,8 +56,12 @@ const grnSchema = new mongoose.Schema({
   },
   supplier: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer', // Using Customer model for suppliers
+    ref: 'Supplier',
     required: true
+  },
+  customer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Customer'
   },
   grnDate: {
     type: Date,
@@ -127,6 +131,7 @@ const grnSchema = new mongoose.Schema({
 // grnNumber index is automatic from unique: true
 grnSchema.index({ 'purchaseOrder.poNumber': 1 });
 grnSchema.index({ supplier: 1 });
+grnSchema.index({ customer: 1 });
 grnSchema.index({ grnDate: -1 });
 
 // Pre-save middleware to calculate totals

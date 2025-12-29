@@ -6,6 +6,7 @@ import store from './redux/store';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Customers from './pages/Customers';
+import Suppliers from './pages/Suppliers';
 import Products from './pages/Products';
 import Quotations from './pages/Quotations';
 import QuotationForm from './pages/QuotationForm';
@@ -62,7 +63,10 @@ function App() {
               
               {/* Customer Routes */}
               <Route path="/customers" element={<Customers />} />
-              
+
+              {/* Supplier Routes */}
+              <Route path="/suppliers" element={<Suppliers />} />
+
               {/* Product Routes */}
               <Route path="/products" element={<Products />} />
               
