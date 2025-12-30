@@ -15,6 +15,10 @@ import Invoices from './pages/Invoices';
 import InvoiceForm from './pages/InvoiceForm';
 import InvoiceView from './pages/InvoiceView';
 import Payments from './pages/Payments';
+// Supplier Payment imports
+import SupplierPayments from './pages/SupplierPayments';
+import SupplierPaymentForm from './pages/SupplierPaymentForm';
+import SupplierPaymentView from './pages/SupplierPaymentView';
 import Taxes from './pages/Taxes';
 import Settings from './pages/Settings';
 import Reports from './pages/Reports';
@@ -107,7 +111,13 @@ function App() {
               
               {/* Payment Routes */}
               <Route path="/payments" element={<Payments />} />
-              
+
+              {/* Supplier Payment Routes - Admin Only */}
+              <Route path="/supplier-payments" element={<RoleRoute allow={['admin']}><SupplierPayments /></RoleRoute>} />
+              <Route path="/supplier-payments/new" element={<RoleRoute allow={['admin']}><SupplierPaymentForm /></RoleRoute>} />
+              <Route path="/supplier-payments/edit/:id" element={<RoleRoute allow={['admin']}><SupplierPaymentForm /></RoleRoute>} />
+              <Route path="/supplier-payments/view/:id" element={<RoleRoute allow={['admin']}><SupplierPaymentView /></RoleRoute>} />
+
               {/* Tax Routes */}
               <Route path="/taxes" element={<RoleRoute allow={['admin']}><Taxes /></RoleRoute>} />
               

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, InputNumber, Select, Button, Card, Space, message, Spin, Row, Col, Alert } from 'antd';
+import { Form, Input, InputNumber, Select, Button, Card, Space, Spin, Row, Col, Alert } from 'antd';
 import { SwapOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../api/axios';
+import toast from '../utils/toast';
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -41,7 +42,7 @@ function StockTransfer() {
       });
     } catch (error) {
       console.error('Failed to load stock:', error);
-      message.error('Failed to load stock details');
+      toast.error('Failed to Load Stock', 'Unable to load stock details. Please try again.');
       navigate('/stock');
     }
     setLoading(false);
@@ -54,12 +55,18 @@ function StockTransfer() {
     }
 
     if (values.fromLocation === values.toLocation) {
-      message.error('Source and destination locations must be different');
+      toast.warning(
+        'Invalid Transfer',
+        'Source and destination locations must be different. Please select a different destination.'
+      );
       return;
     }
 
     if (values.quantity > stock.quantity) {
-      message.error(`Cannot transfer more than available quantity (${stock.quantity})`);
+      toast.error(
+        'Insufficient Stock',
+        `Cannot transfer ${values.quantity} units. Only ${stock.quantity} units available at ${values.fromLocation}.`
+      );
       return;
     }
 
@@ -73,11 +80,17 @@ function StockTransfer() {
         notes: values.notes
       });
 
-      message.success(`Successfully transferred from ${values.fromLocation} to ${values.toLocation}`);
+      toast.celebrate(
+        `✅ Stock Transfer Successful!`,
+        `${values.quantity} units of ${stock.product?.name} transferred from ${values.fromLocation} to ${values.toLocation}. Great work organizing your inventory!`
+      );
       navigate('/stock');
     } catch (error) {
       console.error('Failed to transfer stock:', error);
-      message.error(error.response?.data?.message || 'Failed to transfer stock');
+      toast.error(
+        'Transfer Failed',
+        error.response?.data?.message || 'Unable to complete the transfer. Please try again or contact support.'
+      );
     } finally {
       setTransferring(false);
     }

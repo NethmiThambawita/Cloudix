@@ -179,6 +179,43 @@ export const createInvoice = async (req, res) => {
       approvedAt: null
     };
 
+    // ✅ STOCK DEDUCTION: Deduct stock immediately when invoice is created
+    const Stock = (await import('../models/Stock.js')).default;
+    const StockTransaction = (await import('../models/StockTransaction.js')).default;
+    const Product = (await import('../models/Product.js')).default;
+    const defaultLocation = 'Main Warehouse';
+
+    // Validate stock availability for all items first
+    for (const item of items) {
+      const product = await Product.findById(item.product);
+
+      if (!product) {
+        return res.status(400).json({
+          success: false,
+          message: `Product not found: ${item.description || 'Unknown'}`
+        });
+      }
+
+      const stock = await Stock.findOne({
+        product: item.product,
+        location: defaultLocation
+      });
+
+      if (!stock) {
+        return res.status(400).json({
+          success: false,
+          message: `No stock record found for product: ${product.name || item.description}`
+        });
+      }
+
+      if (stock.quantity < item.quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient stock for ${product.name || item.description}. Available: ${stock.quantity}, Required: ${item.quantity}`
+        });
+      }
+    }
+
     const invoice = await Invoice.create({
       ...req.body,
       type: 'invoice',
@@ -197,12 +234,42 @@ export const createInvoice = async (req, res) => {
       ...approvalData
     });
 
-    console.log('✅ Invoice created with taxes:', {
-      subtotal,
-      taxesCount: taxes.length,
-      taxAmount,
-      total
-    });
+    // All validation passed, now deduct stock and create transactions
+    for (const item of items) {
+      const product = await Product.findById(item.product);
+      const stock = await Stock.findOne({
+        product: item.product,
+        location: defaultLocation
+      });
+
+      const balanceBefore = stock.quantity;
+      const balanceAfter = balanceBefore - item.quantity;
+
+      // Update stock quantity
+      stock.quantity = balanceAfter;
+      await stock.save();
+
+      // Create stock transaction for audit trail
+      await StockTransaction.create({
+        transactionType: 'sale',
+        product: item.product,
+        quantity: item.quantity,
+        fromLocation: defaultLocation,
+        referenceType: 'Invoice',
+        referenceId: invoice._id,
+        referenceNumber: invoice.invoiceNumber,
+        balanceBefore,
+        balanceAfter,
+        unitPrice: item.unitPrice,
+        totalValue: item.total,
+        reason: 'Stock deducted for invoice creation',
+        notes: `Invoice ${invoice.invoiceNumber} created - ${item.quantity} units of ${product.name || item.description} sold`,
+        performedBy: req.user._id,
+        transactionDate: new Date()
+      });
+    }
+
+    console.log(`✅ Stock deducted for invoice ${invoice.invoiceNumber} - ${items.length} items`);
 
     const populatedInvoice = await Invoice.findById(invoice._id)
       .populate('customer')
@@ -349,7 +416,7 @@ export const updateInvoiceApproval = async (req, res) => {
       });
     }
 
-    const invoiceExisting = await Invoice.findById(req.params.id);
+    const invoiceExisting = await Invoice.findById(req.params.id).populate('items.product');
     if (!invoiceExisting) {
       return res.status(404).json({ success: false, message: 'Invoice not found' });
     }
@@ -360,6 +427,8 @@ export const updateInvoiceApproval = async (req, res) => {
         message: `Only pending invoices can be ${approvalStatus}`
       });
     }
+
+    // Note: Stock is already deducted when invoice is created, no need to deduct again on approval
 
     const updateData = { approvalStatus };
 

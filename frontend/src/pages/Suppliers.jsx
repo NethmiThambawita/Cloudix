@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Space } from 'antd';
+import { Table, Button, Modal, Form, Input, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import api from '../api/axios';
 import { useSelector } from 'react-redux';
+import toast from '../utils/toast';
 
 const { confirm } = Modal;
 
@@ -24,16 +25,17 @@ function Suppliers() {
     setLoading(true);
     try {
       const response = await api.get('/suppliers');
-      setSuppliers(response.data.data || []);
+      setSuppliers(response.data.result || []);
     } catch (error) {
-      message.error('Failed to load suppliers');
+      toast.error('Failed to load suppliers', 'Please refresh the page or contact support.');
+      console.error('Error:', error);
     }
     setLoading(false);
   };
 
   const handleAdd = () => {
     if (!isAdmin) {
-      message.error('You do not have permission to add suppliers');
+      toast.warning('Permission Required', 'You need admin privileges to add suppliers.');
       return;
     }
     setEditingSupplier(null);
@@ -43,7 +45,7 @@ function Suppliers() {
 
   const handleEdit = (record) => {
     if (!isAdmin) {
-      message.error('You do not have permission to edit suppliers');
+      toast.warning('Permission Required', 'You need admin privileges to edit suppliers.');
       return;
     }
     setEditingSupplier(record);
@@ -53,23 +55,48 @@ function Suppliers() {
 
   const handleDelete = (record) => {
     if (!isAdmin) {
-      message.error('You do not have permission to delete suppliers');
+      toast.warning('Permission Required', 'You need admin privileges to delete suppliers.');
       return;
     }
     confirm({
-      title: 'Delete Supplier?',
-      icon: <ExclamationCircleOutlined />,
-      content: `Are you sure you want to Delete Supplier.`,
-      okText: 'Yes, Delete',
+      title: '🗑️ Delete Supplier?',
+      icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
+      content: (
+        <div>
+          <p>Are you sure you want to delete <strong>{record.name}</strong>?</p>
+          <div style={{
+            padding: '12px',
+            background: '#fff2e8',
+            border: '1px solid #ffbb96',
+            borderRadius: '4px',
+            marginTop: '12px',
+            marginBottom: '12px'
+          }}>
+            <p style={{ color: '#d4380d', margin: 0, fontWeight: 500 }}>
+              ⚠️ Warning: This will permanently remove all supplier information and history.
+            </p>
+          </div>
+          <p style={{ marginTop: '12px', color: '#666' }}>
+            💡 This action cannot be undone. Consider deactivating instead if you may need this data later.
+          </p>
+        </div>
+      ),
+      okText: 'Yes, Delete Permanently',
       okType: 'danger',
-      cancelText: 'Cancel',
+      cancelText: 'No, Keep It',
       async onOk() {
         try {
           await api.delete(`/suppliers/${record._id}`);
-          message.success('Supplier deleted successfully');
+          toast.success(
+            '✅ Supplier Deleted Successfully',
+            `${record.name} has been removed from your supplier network.`
+          );
           fetchSuppliers();
         } catch (error) {
-          message.error(error.response?.data?.message || 'Failed to delete supplier');
+          toast.error(
+            'Failed to Delete Supplier',
+            error.response?.data?.message || 'Please try again or contact support.'
+          );
         }
       }
     });
@@ -85,15 +112,26 @@ function Suppliers() {
     try {
       if (editingSupplier) {
         await api.put(`/suppliers/${editingSupplier._id}`, values);
-        message.success('Supplier updated');
+        toast.success(
+          '✨ Supplier Updated!',
+          `${values.name}'s information has been updated successfully.`
+        );
       } else {
         await api.post('/suppliers', values);
-        message.success('Supplier created');
+        toast.celebrate(
+          '🎉 New Supplier Added!',
+          `${values.name} has been added to your supplier network. Welcome aboard!`
+        );
       }
       setModalVisible(false);
+      form.resetFields();
       fetchSuppliers();
     } catch (error) {
-      message.error('Failed to save supplier');
+      console.error('Error saving supplier:', error);
+      toast.error(
+        'Failed to save supplier',
+        error.response?.data?.message || 'Please check your input and try again.'
+      );
     } finally {
       setSubmitting(false);
     }

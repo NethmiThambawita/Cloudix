@@ -105,6 +105,17 @@ function MainLayout() {
       label: 'Payments (PAY)',
       onClick: () => navigate('/payments')
     },
+    // Admin-only Supplier Payments
+    ...(isAdmin
+      ? [
+          {
+            key: '/supplier-payments',
+            icon: <DollarOutlined />,
+            label: 'Supplier Payments',
+            onClick: () => navigate('/supplier-payments')
+          }
+        ]
+      : []),
     // Admin/Manager-only links
     ...(isAdmin || isManager
       ? [

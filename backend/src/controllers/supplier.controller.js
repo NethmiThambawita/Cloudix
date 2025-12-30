@@ -16,7 +16,7 @@ export const getAll = async (req, res) => {
 
     res.json({
       success: true,
-      data: suppliers,
+      result: suppliers,
       pagination: {
         page,
         limit,

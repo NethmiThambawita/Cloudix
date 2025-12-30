@@ -112,6 +112,19 @@ const grnSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  paidAmount: {
+    type: Number,
+    default: 0
+  },
+  balanceAmount: {
+    type: Number,
+    default: 0
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['unpaid', 'partial', 'paid'],
+    default: 'unpaid'
+  },
   notes: String,
   attachments: [{
     fileName: String,
@@ -140,12 +153,17 @@ grnSchema.pre('save', function(next) {
     item.shortQuantity = item.orderedQuantity - item.receivedQuantity;
     item.rejectedQuantity = item.receivedQuantity - item.acceptedQuantity;
   });
-  
+
   // Calculate total value
   this.totalValue = this.items.reduce((sum, item) => {
     return sum + (item.acceptedQuantity * (item.unitPrice || 0));
   }, 0);
-  
+
+  // Initialize balance amount if new or total value changed
+  if (this.isNew || this.isModified('items') || this.isModified('totalValue')) {
+    this.balanceAmount = this.totalValue - (this.paidAmount || 0);
+  }
+
   next();
 });
 

@@ -18,6 +18,7 @@ import userRoutes from './users.routes.js';
 import stockRoutes from './stock.routes.js';
 import grnRoutes from './grn.routes.js';
 import purchaseOrderRoutes from './purchaseOrder.routes.js';
+import supplierPaymentRoutes from './supplierPayment.routes.js';
 
 const router = express.Router();
 
@@ -38,6 +39,7 @@ router.use('/users', userRoutes);
 router.use('/stock', stockRoutes);
 router.use('/grn', grnRoutes);
 router.use('/purchase-orders', purchaseOrderRoutes);
+router.use('/supplier-payments', supplierPaymentRoutes);
 
 // Debug routes (enable in development only)
 if (process.env.NODE_ENV !== 'production') {

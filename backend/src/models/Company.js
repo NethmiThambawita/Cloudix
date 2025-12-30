@@ -44,7 +44,8 @@ const companySchema = new mongoose.Schema({
     quotation: { type: String, default: 'SQ-' },
     purchaseOrder: { type: String, default: 'PO-' },
     invoice: { type: String, default: 'SI-' },
-    payment: { type: String, default: 'PAY-' }
+    payment: { type: String, default: 'PAY-' },
+    supplierPayment: { type: String, default: 'SUPPAY-' }
   },
   
   // Tax Settings

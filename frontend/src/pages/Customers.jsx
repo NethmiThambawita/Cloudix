@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Space } from 'antd';
+import { Table, Button, Modal, Form, Input, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import api from '../api/axios';
 import { useSelector } from 'react-redux';
+import toast from '../utils/toast';
 
 const { confirm } = Modal;
 
@@ -26,14 +27,15 @@ function Customers() {
       const response = await api.get('/customers');
       setCustomers(response.data.data || []);
     } catch (error) {
-      message.error('Failed to load customers');
+      toast.error('Failed to load customers', 'Please refresh the page or contact support.');
+      console.error('Error:', error);
     }
     setLoading(false);
   };
 
   const handleAdd = () => {
     if (!isAdmin) {
-      message.error('You do not have permission to add customers');
+      toast.warning('Permission Required', 'You need admin privileges to add customers.');
       return;
     }
     setEditingCustomer(null);
@@ -43,7 +45,7 @@ function Customers() {
 
   const handleEdit = (record) => {
     if (!isAdmin) {
-      message.error('You do not have permission to edit customers');
+      toast.warning('Permission Required', 'You need admin privileges to edit customers.');
       return;
     }
     setEditingCustomer(record);
@@ -53,23 +55,48 @@ function Customers() {
 
   const handleDelete = (record) => {
     if (!isAdmin) {
-      message.error('You do not have permission to delete customers');
+      toast.warning('Permission Required', 'You need admin privileges to delete customers.');
       return;
     }
     confirm({
-      title: 'Delete Customer?',
-      icon: <ExclamationCircleOutlined />,
-      content: `Are you sure you want to Delete Customer.`,
-      okText: 'Yes, Delete',
+      title: '🗑️ Delete Customer?',
+      icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
+      content: (
+        <div>
+          <p>Are you sure you want to delete <strong>{record.name}</strong>?</p>
+          <div style={{
+            padding: '12px',
+            background: '#fff2e8',
+            border: '1px solid #ffbb96',
+            borderRadius: '4px',
+            marginTop: '12px',
+            marginBottom: '12px'
+          }}>
+            <p style={{ color: '#d4380d', margin: 0, fontWeight: 500 }}>
+              ⚠️ Warning: This will permanently remove all customer information and transaction history.
+            </p>
+          </div>
+          <p style={{ marginTop: '12px', color: '#666' }}>
+            💡 This action cannot be undone. Consider deactivating instead if you may need this data later.
+          </p>
+        </div>
+      ),
+      okText: 'Yes, Delete Permanently',
       okType: 'danger',
-      cancelText: 'Cancel',
+      cancelText: 'No, Keep It',
       async onOk() {
         try {
           await api.delete(`/customers/${record._id}`);
-          message.success('Customer deleted successfully');
+          toast.success(
+            '✅ Customer Deleted Successfully',
+            `${record.name} has been removed from your customer base.`
+          );
           fetchCustomers();
         } catch (error) {
-          message.error(error.response?.data?.message || 'Failed to delete customer');
+          toast.error(
+            'Failed to Delete Customer',
+            error.response?.data?.message || 'Please try again or contact support.'
+          );
         }
       }
     });
@@ -85,15 +112,24 @@ function Customers() {
     try {
       if (editingCustomer) {
         await api.put(`/customers/${editingCustomer._id}`, values);
-        message.success('Customer updated');
+        toast.success(
+          '✨ Customer Updated!',
+          `${values.name}'s information has been updated successfully.`
+        );
       } else {
         await api.post('/customers', values);
-        message.success('Customer created');
+        toast.celebrate(
+          '🎉 New Customer Added!',
+          `${values.name} has been added to your customer base. Welcome aboard!`
+        );
       }
       setModalVisible(false);
       fetchCustomers();
     } catch (error) {
-      message.error('Failed to save customer');
+      toast.error(
+        'Failed to save customer',
+        'Please check your input and try again.'
+      );
     } finally {
       setSubmitting(false);
     }
