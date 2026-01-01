@@ -13,10 +13,14 @@ export const authorize = (...roles) => {
     // Flatten roles array in case an array is passed as first argument
     const allowedRoles = roles.flat();
 
-    if (!allowedRoles.includes(req.user.role)) {
+    // Case-insensitive role comparison
+    const userRole = req.user.role?.toLowerCase();
+    const normalizedRoles = allowedRoles.map(role => role.toLowerCase());
+
+    if (!normalizedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
-        message: `Role ${req.user.role} is not authorized to access this route`
+        message: `Access denied. Role '${req.user.role}' is not authorized to access this route. Required roles: ${allowedRoles.join(', ')}`
       });
     }
 
@@ -26,8 +30,8 @@ export const authorize = (...roles) => {
 
 // Middleware to filter queries by user role
 export const filterByUser = (req, res, next) => {
-  // Admin sees everything
-  if (req.user.role === 'admin') {
+  // Admin sees everything (case-insensitive)
+  if (req.user.role?.toLowerCase() === 'admin') {
     return next();
   }
 

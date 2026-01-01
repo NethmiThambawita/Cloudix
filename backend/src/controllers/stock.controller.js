@@ -256,71 +256,114 @@ export const transferStock = async (req, res) => {
   try {
     const { productId, quantity, fromLocation, toLocation, notes } = req.body;
 
+    console.log('Transfer request received:', { productId, quantity, fromLocation, toLocation });
+
+    // Validate required fields
+    if (!productId || !quantity || !fromLocation || !toLocation) {
+      return res.status(400).json({
+        message: 'Missing required fields',
+        details: { productId, quantity, fromLocation, toLocation }
+      });
+    }
+
     // Find stock at source location
     const sourceStock = await Stock.findOne({ product: productId, location: fromLocation }).populate('product');
     if (!sourceStock) {
+      console.log('Source stock not found:', { product: productId, location: fromLocation });
       return res.status(404).json({ message: 'Stock not found at source location' });
     }
 
+    console.log('Source stock found:', { quantity: sourceStock.quantity, location: sourceStock.location });
+
     if (sourceStock.quantity < quantity) {
-      return res.status(400).json({ message: 'Insufficient stock for transfer' });
+      return res.status(400).json({
+        message: `Insufficient stock for transfer. Available: ${sourceStock.quantity}, Requested: ${quantity}`
+      });
     }
 
     // Reduce quantity from source location
     const sourceBalanceBefore = sourceStock.quantity;
     sourceStock.quantity = sourceBalanceBefore - quantity;
     await sourceStock.save();
+    console.log('Source stock updated:', { oldQty: sourceBalanceBefore, newQty: sourceStock.quantity });
 
     // Find or create stock at destination location
     let destinationStock = await Stock.findOne({ product: productId, location: toLocation });
 
     if (!destinationStock) {
-      // Create new stock record at destination location
-      destinationStock = new Stock({
-        product: productId,
-        quantity: quantity,
-        location: toLocation,
-        minLevel: sourceStock.minLevel,
-        reorderLevel: sourceStock.reorderLevel,
-        batchTracking: sourceStock.batchTracking,
-        serialTracking: sourceStock.serialTracking,
-        notes: `Transferred from ${fromLocation}`
-      });
-      await destinationStock.save();
+      console.log('Creating new stock at destination:', toLocation);
+      try {
+        // Create new stock record at destination location
+        destinationStock = new Stock({
+          product: productId,
+          quantity: quantity,
+          location: toLocation,
+          minLevel: sourceStock.minLevel,
+          reorderLevel: sourceStock.reorderLevel,
+          batchTracking: sourceStock.batchTracking,
+          serialTracking: sourceStock.serialTracking,
+          notes: `Transferred from ${fromLocation}`
+        });
+        await destinationStock.save();
+        console.log('New destination stock created');
+      } catch (createError) {
+        console.error('Error creating destination stock:', createError);
+        // Rollback source stock
+        sourceStock.quantity = sourceBalanceBefore;
+        await sourceStock.save();
+        throw new Error(`Failed to create stock at destination: ${createError.message}`);
+      }
     } else {
+      console.log('Updating existing destination stock');
       // Update existing stock at destination location
       destinationStock.quantity += quantity;
       await destinationStock.save();
+      console.log('Destination stock updated:', { newQty: destinationStock.quantity });
     }
 
     // Create transaction for the transfer
     const referenceNumber = `TRF-${Date.now()}`;
-    const transaction = new StockTransaction({
-      transactionType: 'transfer',
-      product: productId,
-      quantity,
-      fromLocation,
-      toLocation,
-      balanceBefore: sourceBalanceBefore,
-      balanceAfter: sourceStock.quantity,
-      referenceType: 'Transfer',
-      referenceNumber,
-      notes,
-      performedBy: req.user.id,
-      transactionDate: new Date()
-    });
-    await transaction.save();
+    try {
+      const transaction = new StockTransaction({
+        transactionType: 'transfer',
+        product: productId,
+        quantity,
+        fromLocation,
+        toLocation,
+        balanceBefore: sourceBalanceBefore,
+        balanceAfter: sourceStock.quantity,
+        referenceType: 'Transfer',
+        referenceNumber,
+        notes,
+        performedBy: req.user._id || req.user.id,
+        transactionDate: new Date()
+      });
+      await transaction.save();
+      console.log('Transaction created:', referenceNumber);
+    } catch (transError) {
+      console.error('Error creating transaction:', transError);
+      console.error('Transaction error details:', transError.message);
+      // Continue even if transaction fails (transfer already completed)
+    }
 
     const updatedSourceStock = await Stock.findById(sourceStock._id).populate('product');
     const updatedDestinationStock = await Stock.findById(destinationStock._id).populate('product');
 
+    console.log('Transfer completed successfully');
     res.json({
+      success: true,
       sourceStock: updatedSourceStock,
       destinationStock: updatedDestinationStock,
-      transaction
+      message: 'Transfer completed successfully'
     });
   } catch (error) {
-    res.status(500).json({ message: 'Error transferring stock', error: error.message });
+    console.error('Error in transferStock:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      message: 'Error transferring stock',
+      error: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 };
 
@@ -440,29 +483,37 @@ export const deleteStock = async (req, res) => {
       return res.status(404).json({ message: 'Stock item not found' });
     }
 
-    // Check if stock has quantity - warn but allow deletion
+    // Check if stock has quantity - create transaction for audit trail
     if (stock.quantity > 0) {
-      // Create a transaction record for audit trail
-      const transaction = new StockTransaction({
-        transactionType: 'adjustment',
-        product: stock.product,
-        quantity: stock.quantity,
-        fromLocation: stock.location,
-        balanceBefore: stock.quantity,
-        balanceAfter: 0,
-        referenceType: 'Stock Deletion',
-        referenceNumber: `DEL-${Date.now()}`,
-        reason: 'Stock item deleted',
-        notes: `Stock item with ${stock.quantity} units was deleted`,
-        performedBy: req.user.id,
-        transactionDate: new Date()
-      });
-      await transaction.save();
+      try {
+        const transaction = new StockTransaction({
+          transactionType: 'adjustment',
+          product: stock.product,
+          quantity: stock.quantity,
+          fromLocation: stock.location,
+          balanceBefore: stock.quantity,
+          balanceAfter: 0,
+          referenceType: 'Stock Deletion',
+          referenceNumber: `DEL-${Date.now()}`,
+          reason: 'Stock item deleted',
+          notes: `Stock item with ${stock.quantity} units was deleted`,
+          performedBy: req.user.id,
+          transactionDate: new Date()
+        });
+        await transaction.save();
+      } catch (transError) {
+        console.error('Error creating deletion transaction:', transError);
+        // Continue with deletion even if transaction fails
+      }
     }
 
     await Stock.findByIdAndDelete(id);
     res.json({ success: true, message: 'Stock item deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting stock', error: error.message });
+    console.error('Error deleting stock:', error);
+    res.status(500).json({
+      message: 'Error deleting stock',
+      error: error.message
+    });
   }
 };

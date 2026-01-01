@@ -8,7 +8,7 @@ message.config({
 });
 
 notification.config({
-  placement: 'topRight',
+  placement: 'top',
   top: 80,
   duration: 4.5,
   maxCount: 3,

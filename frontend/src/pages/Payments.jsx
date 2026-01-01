@@ -84,20 +84,26 @@ function Payments() {
   };
 
   const columns = [
-    { 
-      title: 'Payment Number', 
-      dataIndex: 'paymentNumber', 
-      key: 'paymentNumber' 
+    {
+      title: 'Payment Number',
+      dataIndex: 'paymentNumber',
+      key: 'paymentNumber'
     },
-    { 
-      title: 'Invoice', 
-      dataIndex: ['invoice', 'invoiceNumber'], 
-      key: 'invoice' 
+    {
+      title: 'Invoice',
+      dataIndex: ['invoice', 'invoiceNumber'],
+      key: 'invoice'
     },
-    { 
-      title: 'Amount', 
-      dataIndex: 'amount', 
-      key: 'amount', 
+    {
+      title: 'Customer',
+      dataIndex: ['invoice', 'customer', 'name'],
+      key: 'customer',
+      render: (name) => name || '-'
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
       render: (val) => formatCurrency(val)
     },
     { 

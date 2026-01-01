@@ -11,7 +11,9 @@ const connectDB = async () => {
     };
 
     await mongoose.connect(process.env.MONGODB_URI, options);
-    console.log('✅ MongoDB Connected');
+    console.log('✅ MongoDB Connected Successfully');
+    console.log(`📊 Database: ${mongoose.connection.name}`);
+    console.log(`🌐 Host: ${mongoose.connection.host}`);
   } catch (error) {
     console.error('❌ MongoDB Connection Error:', error.message);
     console.error('\n🔍 Troubleshooting steps:');
@@ -24,5 +26,31 @@ const connectDB = async () => {
     // Don't exit - allow server to run for frontend development
   }
 };
+
+// Handle MongoDB connection events
+mongoose.connection.on('connected', () => {
+  console.log('🔗 Mongoose connected to MongoDB');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Mongoose connection error:', err.message);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️  Mongoose disconnected from MongoDB');
+  console.log('🔄 Attempting to reconnect...');
+});
+
+// Handle process termination
+process.on('SIGINT', async () => {
+  try {
+    await mongoose.connection.close();
+    console.log('📴 MongoDB connection closed due to app termination');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error closing MongoDB connection:', err);
+    process.exit(1);
+  }
+});
 
 export default connectDB;

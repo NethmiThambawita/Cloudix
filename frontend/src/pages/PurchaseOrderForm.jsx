@@ -40,7 +40,7 @@ function PurchaseOrderForm() {
   const fetchSuppliers = async () => {
     try {
       const response = await api.get('/suppliers');
-      const data = response.data?.data ?? response.data ?? [];
+      const data = response.data?.result ?? response.data?.data ?? [];
       setSuppliers(Array.isArray(data) ? data : []);
     } catch (error) {
       message.error('Failed to load suppliers');
@@ -50,7 +50,7 @@ function PurchaseOrderForm() {
   const fetchProducts = async () => {
     try {
       const response = await api.get('/products');
-      const data = response.data?.data ?? [];
+      const data = response.data?.result ?? response.data?.data ?? [];
       setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       message.error('Failed to load products');

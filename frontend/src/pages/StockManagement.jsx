@@ -223,6 +223,7 @@ function StockManagement() {
   };
 
   const handleDelete = (record) => {
+    const productName = record.product?.name || 'Unknown Product';
     const warningMessage = record.quantity > 0
       ? `⚠️ Warning: This stock item has ${record.quantity} units. Deleting will remove all stock records.`
       : '';
@@ -232,7 +233,7 @@ function StockManagement() {
       icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
       content: (
         <div>
-          <p>Are you sure you want to delete stock for <strong>{record.product?.name}</strong>?</p>
+          <p>Are you sure you want to delete stock for <strong>{productName}</strong>?</p>
           {warningMessage && (
             <div style={{
               padding: '12px',
@@ -258,15 +259,23 @@ function StockManagement() {
           await api.delete(`/stock/${record._id}`);
           toast.success(
             '✅ Stock Item Deleted Successfully',
-            `${record.product?.name || 'Product'} has been removed from inventory.`
+            `${productName} has been removed from inventory.`
           );
           fetchStocksAndNotify();
         } catch (error) {
           console.error('Failed to delete stock:', error);
-          toast.error(
-            'Failed to Delete Stock Item',
-            error.response?.data?.message || 'Please try again or contact support.'
-          );
+
+          let errorMessage = 'Please try again or contact support.';
+
+          if (error.response?.status === 403) {
+            errorMessage = `Access denied. Your role is '${user?.role}'. Only admin users can delete stock items.`;
+          } else if (error.response?.status === 401) {
+            errorMessage = 'You are not authenticated. Please log in again.';
+          } else if (error.response?.data?.message) {
+            errorMessage = error.response.data.message;
+          }
+
+          toast.error('Failed to Delete Stock Item', errorMessage);
         }
       }
     });
