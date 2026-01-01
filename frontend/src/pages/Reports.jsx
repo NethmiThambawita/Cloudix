@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Row, Col, DatePicker, Button, Select, Table, Statistic, message } from 'antd';
-import { DownloadOutlined, FileTextOutlined, DollarOutlined } from '@ant-design/icons';
+import { Card, Row, Col, DatePicker, Button, Select, Table, Statistic, message, Space } from 'antd';
+import { DownloadOutlined, FileTextOutlined, DollarOutlined, DollarCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from '../api/axios';
 
@@ -16,10 +16,13 @@ function Reports() {
   const [suppliers, setSuppliers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all', 'cash', 'paid'
   const [stats, setStats] = useState({
     totalSales: 0,
     totalInvoices: 0,
-    paidAmount: 0
+    paidAmount: 0,
+    cashAmount: 0,
+    cashCount: 0
   });
 
   useEffect(() => {
@@ -55,38 +58,77 @@ function Reports() {
       const [startDate, endDate] = dateRange;
 
       if (reportType === 'sales' || reportType === 'invoices') {
-        // Load invoices
-        const response = await api.get('/invoices', {
+        // Load ALL invoices (no limit) to get complete CASH total
+        const invoiceResponse = await api.get('/invoices', {
           params: {
             page: 1,
-            limit: 1000
+            limit: 10000
           }
         });
 
-        let invoices = response.data.result || [];
+        let allInvoices = invoiceResponse.data.result || [];
 
-        // Filter by date range
-        invoices = invoices.filter(inv => {
+        // Get ALL CASH invoices (no date filter) for statistics
+        const allCashInvoices = allInvoices.filter(inv => {
+          const customerName = inv.customer?.name?.toUpperCase() || '';
+          return customerName.includes('CASH');
+        });
+
+        // Calculate TOTAL CASH amount (all time, no date filter)
+        const totalCashAmountAllTime = allCashInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+        const totalCashCountAllTime = allCashInvoices.length;
+
+        console.log('Total CASH invoices (all time):', totalCashCountAllTime);
+        console.log('Total CASH amount (all time):', totalCashAmountAllTime);
+
+        // Filter invoices by date range for display
+        let invoices = allInvoices.filter(inv => {
           const invDate = dayjs(inv.date);
           return invDate.isAfter(startDate) && invDate.isBefore(endDate.add(1, 'day'));
         });
 
-        // Filter by customer if selected
+        // Separate CASH invoices from regular invoices (date filtered)
+        const cashInvoices = invoices.filter(inv => {
+          const customerName = inv.customer?.name?.toUpperCase() || '';
+          return customerName.includes('CASH');
+        });
+
+        console.log('CASH invoices (date filtered):', cashInvoices.length);
+
+        const regularInvoices = invoices.filter(inv => {
+          const customerName = inv.customer?.name?.toUpperCase() || '';
+          return !customerName.includes('CASH');
+        });
+
+        // Filter regular invoices by customer if selected
+        let displayInvoices = regularInvoices;
         if (selectedCustomer) {
-          invoices = invoices.filter(inv => inv.customer?._id === selectedCustomer);
+          displayInvoices = displayInvoices.filter(inv => inv.customer?._id === selectedCustomer);
         }
 
-        // Format for table
-        const formatted = invoices.map(inv => ({
+        // Calculate CASH amount for date-filtered invoices (for table row)
+        const totalCashAmount = cashInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+        const totalCashPaid = cashInvoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+        const totalCashBalance = cashInvoices.reduce((sum, inv) => sum + (inv.balanceAmount || 0), 0);
+
+        console.log('Total CASH amount (date filtered):', totalCashAmount);
+
+        // Format ALL invoices for table (including CASH as regular rows)
+        const allDisplayInvoices = selectedCustomer
+          ? invoices.filter(inv => inv.customer?._id === selectedCustomer)
+          : invoices;
+
+        const formatted = allDisplayInvoices.map(inv => ({
           key: inv._id,
           date: dayjs(inv.date).format('YYYY-MM-DD'),
           invoiceNumber: inv.invoiceNumber,
           customer: inv.customer?.name || 'N/A',
           amount: inv.total,
+          balance: inv.balanceAmount || 0,
           status: inv.status
         }));
 
-        // Calculate stats
+        // Calculate stats (including CASH invoices)
         const totalSales = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
         const paidAmount = invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
 
@@ -94,7 +136,9 @@ function Reports() {
         setStats({
           totalSales,
           totalInvoices: invoices.length,
-          paidAmount
+          paidAmount,
+          cashAmount: totalCashAmountAllTime, // All-time total, not date filtered
+          cashCount: totalCashCountAllTime // All-time count, not date filtered
         });
 
       } else if (reportType === 'quotations') {
@@ -360,7 +404,7 @@ function Reports() {
     }
   };
 
-  const handleExport = () => {
+  const handleExportDetails = () => {
     if (reportData.length === 0) {
       message.warning('No data to export');
       return;
@@ -368,12 +412,13 @@ function Reports() {
 
     try {
       // Convert data to CSV
-      const headers = ['Date', 'Reference', reportType === 'suppliers' || reportType === 'supplier-payments' || reportType === 'grn' ? 'Supplier' : 'Customer', 'Amount', 'Status'];
+      const headers = ['Date', 'Reference', reportType === 'suppliers' || reportType === 'supplier-payments' || reportType === 'grn' ? 'Supplier' : 'Customer', 'Amount', 'Balance', 'Status'];
       const csvData = reportData.map(row => [
         row.date,
         row.invoiceNumber,
         row.customer,
         row.amount,
+        row.balance || 0,
         row.status
       ]);
 
@@ -387,7 +432,7 @@ function Reports() {
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
 
-      const filename = `${reportType}_report_${dayjs().format('YYYY-MM-DD')}.csv`;
+      const filename = `${reportType}_report_details_${dayjs().format('YYYY-MM-DD')}.csv`;
 
       link.setAttribute('href', url);
       link.setAttribute('download', filename);
@@ -397,6 +442,61 @@ function Reports() {
       document.body.removeChild(link);
 
       message.success('Report exported successfully');
+    } catch (error) {
+      console.error('Export error:', error);
+      message.error('Failed to export report');
+    }
+  };
+
+  const handleExportWithSummary = () => {
+    if (reportData.length === 0) {
+      message.warning('No data to export');
+      return;
+    }
+
+    try {
+      // Convert data to CSV with summary
+      const headers = ['Date', 'Reference', reportType === 'suppliers' || reportType === 'supplier-payments' || reportType === 'grn' ? 'Supplier' : 'Customer', 'Amount', 'Balance', 'Status'];
+      const csvData = reportData.map(row => [
+        row.date,
+        row.invoiceNumber,
+        row.customer,
+        row.amount,
+        row.balance || 0,
+        row.status
+      ]);
+
+      // Add summary rows
+      const summaryRows = [
+        [], // Empty row for spacing
+        ['SUMMARY'], // Summary header
+        ['Total Records', stats.totalInvoices],
+        ['Total Amount', stats.totalSales],
+        ['Paid Amount', stats.paidAmount],
+        ['Outstanding', stats.totalSales - stats.paidAmount]
+      ];
+
+      const csv = [
+        headers.join(','),
+        ...csvData.map(row => row.join(',')),
+        ...summaryRows.map(row => row.join(','))
+      ].join('\n');
+
+      // Create download link
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+
+      const filename = `${reportType}_report_with_summary_${dayjs().format('YYYY-MM-DD')}.csv`;
+
+      link.setAttribute('href', url);
+      link.setAttribute('download', filename);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      message.success('Report with summary exported successfully');
     } catch (error) {
       console.error('Export error:', error);
       message.error('Failed to export report');
@@ -415,6 +515,12 @@ function Reports() {
       title: 'Amount',
       dataIndex: 'amount',
       key: 'amount',
+      render: (val) => `Rs. ${(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    },
+    {
+      title: 'Balance',
+      dataIndex: 'balance',
+      key: 'balance',
       render: (val) => `Rs. ${(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     },
     { title: 'Status', dataIndex: 'status', key: 'status' }
@@ -493,7 +599,7 @@ function Reports() {
             </Col>
           )}
 
-          <Col xs={24} sm={showCustomerFilter || showSupplierFilter ? 8 : 14}>
+          <Col xs={24} sm={showCustomerFilter || showSupplierFilter ? 8 : 12}>
             <RangePicker
               style={{ width: '100%' }}
               value={dateRange}
@@ -502,16 +608,26 @@ function Reports() {
             />
           </Col>
 
-          <Col xs={24} sm={4}>
-            <Button
-              type="primary"
-              icon={<DownloadOutlined />}
-              onClick={handleExport}
-              style={{ width: '100%' }}
-              disabled={reportData.length === 0}
-            >
-              Export CSV
-            </Button>
+          <Col xs={24} sm={showCustomerFilter || showSupplierFilter ? 4 : 6} style={{ textAlign: 'right' }}>
+            <Space size="small">
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                onClick={handleExportWithSummary}
+                size="small"
+                disabled={reportData.length === 0}
+              >
+                With Summary
+              </Button>
+              <Button
+                icon={<DownloadOutlined />}
+                onClick={handleExportDetails}
+                size="small"
+                disabled={reportData.length === 0}
+              >
+                Details
+              </Button>
+            </Space>
           </Col>
         </Row>
       </Card>
@@ -564,10 +680,71 @@ function Reports() {
         </Col>
       </Row>
 
-      <Card title={`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`} style={{ marginTop: 20 }}>
+      <Card
+        title={`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`}
+        style={{ marginTop: 20 }}
+        extra={
+          (reportType === 'sales' || reportType === 'invoices') && (
+            <Space>
+              <span>Filter:</span>
+              <Select
+                value={categoryFilter}
+                onChange={setCategoryFilter}
+                style={{ width: 150 }}
+                size="small"
+              >
+                <Option value="all">All Invoices</Option>
+                <Option value="cash">CASH Only</Option>
+                <Option value="paid">Paid Only</Option>
+              </Select>
+            </Space>
+          )
+        }
+      >
+        {(reportType === 'sales' || reportType === 'invoices') && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#f0f5ff', borderRadius: 4 }}>
+            <Row gutter={16}>
+              <Col span={8}>
+                <strong>Filtered Records:</strong> {
+                  categoryFilter === 'all' ? reportData.length :
+                  categoryFilter === 'cash' ? reportData.filter(r => r.customer?.toUpperCase().includes('CASH')).length :
+                  reportData.filter(r => r.status === 'paid').length
+                }
+              </Col>
+              <Col span={8}>
+                <strong>Total Amount:</strong> Rs. {
+                  (categoryFilter === 'all'
+                    ? reportData.reduce((sum, row) => sum + (row.amount || 0), 0)
+                    : categoryFilter === 'cash'
+                    ? reportData.filter(r => r.customer?.toUpperCase().includes('CASH')).reduce((sum, row) => sum + (row.amount || 0), 0)
+                    : reportData.filter(r => r.status === 'paid').reduce((sum, row) => sum + (row.amount || 0), 0)
+                  ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                }
+              </Col>
+              <Col span={8}>
+                <strong>Total Balance:</strong> Rs. {
+                  (categoryFilter === 'all'
+                    ? reportData.reduce((sum, row) => sum + (row.balance || 0), 0)
+                    : categoryFilter === 'cash'
+                    ? reportData.filter(r => r.customer?.toUpperCase().includes('CASH')).reduce((sum, row) => sum + (row.balance || 0), 0)
+                    : reportData.filter(r => r.status === 'paid').reduce((sum, row) => sum + (row.balance || 0), 0)
+                  ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                }
+              </Col>
+            </Row>
+          </div>
+        )}
         <Table
           columns={salesColumns}
-          dataSource={reportData}
+          dataSource={
+            (reportType === 'sales' || reportType === 'invoices')
+              ? categoryFilter === 'all'
+                ? reportData
+                : categoryFilter === 'cash'
+                ? reportData.filter(r => r.customer?.toUpperCase().includes('CASH'))
+                : reportData.filter(r => r.status === 'paid')
+              : reportData
+          }
           rowKey="key"
           loading={loading}
           pagination={{ pageSize: 20 }}

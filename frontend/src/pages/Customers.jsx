@@ -186,7 +186,7 @@ function Customers() {
             <Form.Item name="name" label="Name" rules={[{ required: true }]}>
               <Input />
             </Form.Item>
-            <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}>
+            <Form.Item name="email" label="Email" rules={[{ required: false, type: 'email' }]}>
               <Input />
             </Form.Item>
             <Form.Item name="phone" label="Phone">

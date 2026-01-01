@@ -15,7 +15,8 @@ import {
   AppstoreOutlined,
   ShoppingCartOutlined,
   TeamOutlined,
-  FileDoneOutlined
+  FileDoneOutlined,
+  EnvironmentOutlined
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -139,6 +140,12 @@ function MainLayout() {
                 key: '/settings',
                 label: 'Company Settings',
                 onClick: () => navigate('/settings')
+              },
+              {
+                key: '/locations',
+                icon: <EnvironmentOutlined />,
+                label: 'Locations',
+                onClick: () => navigate('/locations')
               },
               {
                 key: '/taxes',

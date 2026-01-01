@@ -23,6 +23,7 @@ import Taxes from './pages/Taxes';
 import Settings from './pages/Settings';
 import Reports from './pages/Reports';
 import Usermanagement from './pages/Usermanagement';
+import Locations from './pages/Locations';
 //  Stock Management imports
 import StockManagement from './pages/StockManagement';
 import StockForm from './pages/StockForm';
@@ -126,6 +127,7 @@ function App() {
               
               {/* Settings Routes */}
               <Route path="/settings" element={<RoleRoute allow={['admin']}><Settings /></RoleRoute>} />
+              <Route path="/locations" element={<RoleRoute allow={['admin']}><Locations /></RoleRoute>} />
 
               {/* User Management Route */}
               <Route path="/users" element={<RoleRoute allow={['admin']}><Usermanagement /></RoleRoute>} />

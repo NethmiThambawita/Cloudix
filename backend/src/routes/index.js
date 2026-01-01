@@ -19,6 +19,7 @@ import stockRoutes from './stock.routes.js';
 import grnRoutes from './grn.routes.js';
 import purchaseOrderRoutes from './purchaseOrder.routes.js';
 import supplierPaymentRoutes from './supplierPayment.routes.js';
+import locationRoutes from './location.routes.js';
 
 const router = express.Router();
 
@@ -40,6 +41,7 @@ router.use('/stock', stockRoutes);
 router.use('/grn', grnRoutes);
 router.use('/purchase-orders', purchaseOrderRoutes);
 router.use('/supplier-payments', supplierPaymentRoutes);
+router.use('/locations', locationRoutes);
 
 // Debug routes (enable in development only)
 if (process.env.NODE_ENV !== 'production') {
