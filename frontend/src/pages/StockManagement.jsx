@@ -27,6 +27,7 @@ function StockManagement() {
   const { user } = useSelector((state) => state.auth);
   const isAdmin = user?.role === 'admin';
   const [stocks, setStocks] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
@@ -49,8 +50,50 @@ function StockManagement() {
     } else if (filter === 'reorder') {
       setStockFilter('reorder');
     }
+    fetchLocations();
     fetchStocksAndNotify();
   }, [searchParams]);
+
+  const fetchLocations = async () => {
+    try {
+      const response = await api.get('/locations');
+      console.log('Locations API response:', response.data);
+
+      // Handle different response structures
+      let locationData = [];
+      if (Array.isArray(response.data)) {
+        locationData = response.data;
+      } else if (response.data?.result && Array.isArray(response.data.result)) {
+        locationData = response.data.result;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        locationData = response.data.data;
+      }
+
+      // Add default locations
+      const defaultLocations = [
+        { _id: 'default-1', name: 'Main Warehouse', type: 'Warehouse' },
+        { _id: 'default-2', name: 'Retail Store', type: 'Store' },
+        { _id: 'default-3', name: 'Factory', type: 'Manufacturing' },
+        { _id: 'default-4', name: 'Distribution Center', type: 'Distribution' }
+      ];
+
+      // Combine default locations with custom locations from API
+      const allLocations = [...defaultLocations, ...locationData];
+
+      console.log('Locations loaded:', allLocations.length);
+      setLocations(allLocations);
+    } catch (error) {
+      console.error('Failed to load locations:', error);
+      // If API fails, still show default locations
+      const defaultLocations = [
+        { _id: 'default-1', name: 'Main Warehouse', type: 'Warehouse' },
+        { _id: 'default-2', name: 'Retail Store', type: 'Store' },
+        { _id: 'default-3', name: 'Factory', type: 'Manufacturing' },
+        { _id: 'default-4', name: 'Distribution Center', type: 'Distribution' }
+      ];
+      setLocations(defaultLocations);
+    }
+  };
 
   const fetchStocks = async () => {
     setLoading(true);
@@ -505,12 +548,20 @@ function StockManagement() {
               style={{ width: '100%' }}
               placeholder="Select location"
               allowClear
+              showSearch
               value={locationFilter}
               onChange={setLocationFilter}
+              filterOption={(input, option) =>
+                option.children.toLowerCase().includes(input.toLowerCase())
+              }
             >
-              {Array.from(new Set(stocks.map(s => s.location))).map(loc => (
-                <Option key={loc} value={loc}>{loc}</Option>
-              ))}
+              {locations && Array.isArray(locations) && locations.length > 0 ? (
+                locations.map(loc => (
+                  <Option key={loc._id} value={loc.name}>{loc.name}</Option>
+                ))
+              ) : (
+                <Option disabled>No locations available</Option>
+              )}
             </Select>
           </Col>
           <Col xs={24} sm={12} md={4}>

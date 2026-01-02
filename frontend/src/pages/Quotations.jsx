@@ -16,8 +16,13 @@ function Quotations() {
   const fetchQuotations = async () => {
     setLoading(true);
     try {
-      const response = await api.get('/quotations');
+      const response = await api.get('/quotations', {
+        params: {
+          limit: 1000 // Fetch more quotations
+        }
+      });
       // ✅ FIXED: Changed from response.data.data to response.data.result
+      console.log('Quotations response:', response.data);
       setQuotations(response.data.result || []);
     } catch (error) {
       message.error('Failed to load quotations');
@@ -54,7 +59,12 @@ function Quotations() {
 
   const columns = [
     { title: 'Number', dataIndex: 'quotationNumber', key: 'quotationNumber' },
-    { title: 'Customer', dataIndex: ['customer', 'name'], key: 'customer' },
+    {
+      title: 'Customer',
+      dataIndex: ['customer', 'name'],
+      key: 'customer',
+      render: (name, record) => record.customer?.name || 'N/A'
+    },
     { 
       title: 'Date', 
       dataIndex: 'date', 

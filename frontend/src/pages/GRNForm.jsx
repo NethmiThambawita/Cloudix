@@ -14,6 +14,7 @@ function GRNForm() {
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [items, setItems] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [selectedPO, setSelectedPO] = useState(null);
@@ -23,6 +24,7 @@ function GRNForm() {
     fetchSuppliers();
     fetchProducts();
     fetchApprovedPOs();
+    fetchLocations();
   }, []);
 
   // ================= FETCH SUPPLIERS =================
@@ -105,6 +107,48 @@ function GRNForm() {
       console.error('Failed to load purchase orders:', error);
       message.error('Failed to load purchase orders: ' + (error.response?.data?.message || error.message));
       setPurchaseOrders([]);
+    }
+  };
+
+  // ================= FETCH LOCATIONS =================
+  const fetchLocations = async () => {
+    try {
+      const response = await api.get('/locations');
+      console.log('Locations API response:', response.data);
+
+      // Handle different response structures
+      let locationData = [];
+      if (Array.isArray(response.data)) {
+        locationData = response.data;
+      } else if (response.data?.result && Array.isArray(response.data.result)) {
+        locationData = response.data.result;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        locationData = response.data.data;
+      }
+
+      // Add default locations
+      const defaultLocations = [
+        { _id: 'default-1', name: 'Main Warehouse' },
+        { _id: 'default-2', name: 'Retail Store' },
+        { _id: 'default-3', name: 'Factory' },
+        { _id: 'default-4', name: 'Distribution Center' }
+      ];
+
+      // Combine default locations with custom locations from API
+      const allLocations = [...defaultLocations, ...locationData];
+
+      console.log('Locations loaded:', allLocations.length);
+      setLocations(allLocations);
+    } catch (error) {
+      console.error('Failed to load locations:', error);
+      // If API fails, still show default locations
+      const defaultLocations = [
+        { _id: 'default-1', name: 'Main Warehouse' },
+        { _id: 'default-2', name: 'Retail Store' },
+        { _id: 'default-3', name: 'Factory' },
+        { _id: 'default-4', name: 'Distribution Center' }
+      ];
+      setLocations(defaultLocations);
     }
   };
 
@@ -196,6 +240,7 @@ function GRNForm() {
         purchaseOrder: values.purchaseOrder || selectedPO?._id, // Include PO reference
         supplier: values.supplier,
         grnDate: values.grnDate.format('YYYY-MM-DD'),
+        location: values.location, // Include storage location
         items: items.map(i => ({
           product: i.product,
           orderedQuantity: i.orderedQuantity,
@@ -377,6 +422,30 @@ function GRNForm() {
 
           <Form.Item name="grnDate" label="GRN Date" rules={[{ required: true, message: 'Please select date' }]}>
             <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Form.Item
+            name="location"
+            label="Locations"
+            rules={[{ required: true, message: 'Please select location' }]}
+          >
+            <Select
+              placeholder="Select location"
+              showSearch
+              allowClear
+              optionFilterProp="children"
+              notFoundContent={
+                locations.length === 0
+                  ? "No locations available. Add locations first."
+                  : "No results"
+              }
+            >
+              {locations.map(loc => (
+                <Option key={loc._id} value={loc.name}>
+                  {loc.name}
+                </Option>
+              ))}
+            </Select>
           </Form.Item>
         </Card>
 

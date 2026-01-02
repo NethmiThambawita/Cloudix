@@ -10,6 +10,7 @@ function StockForm() {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [products, setProducts] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const navigate = useNavigate();
   const { id } = useParams();
@@ -17,6 +18,7 @@ function StockForm() {
 
   useEffect(() => {
     fetchProducts();
+    fetchLocations();
     if (isEdit) {
       fetchStock();
     }
@@ -26,7 +28,7 @@ function StockForm() {
     try {
       const response = await api.get('/products');
       console.log('Products response:', response.data);
-      
+
       // Handle different response structures
       if (Array.isArray(response.data)) {
         setProducts(response.data);
@@ -43,6 +45,47 @@ function StockForm() {
       console.error('Failed to load products:', error);
       message.error('Failed to load products');
       setProducts([]);
+    }
+  };
+
+  const fetchLocations = async () => {
+    try {
+      const response = await api.get('/locations');
+      console.log('Locations API response:', response.data);
+
+      // Handle different response structures
+      let locationData = [];
+      if (Array.isArray(response.data)) {
+        locationData = response.data;
+      } else if (response.data?.result && Array.isArray(response.data.result)) {
+        locationData = response.data.result;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        locationData = response.data.data;
+      }
+
+      // Add default locations
+      const defaultLocations = [
+        { _id: 'default-1', name: 'Main Warehouse', type: 'Warehouse' },
+        { _id: 'default-2', name: 'Retail Store', type: 'Store' },
+        { _id: 'default-3', name: 'Factory', type: 'Manufacturing' },
+        { _id: 'default-4', name: 'Distribution Center', type: 'Distribution' }
+      ];
+
+      // Combine default locations with custom locations from API
+      const allLocations = [...defaultLocations, ...locationData];
+
+      console.log('Locations loaded:', allLocations.length);
+      setLocations(allLocations);
+    } catch (error) {
+      console.error('Failed to load locations:', error);
+      // If API fails, still show default locations
+      const defaultLocations = [
+        { _id: 'default-1', name: 'Main Warehouse', type: 'Warehouse' },
+        { _id: 'default-2', name: 'Retail Store', type: 'Store' },
+        { _id: 'default-3', name: 'Factory', type: 'Manufacturing' },
+        { _id: 'default-4', name: 'Distribution Center', type: 'Distribution' }
+      ];
+      setLocations(defaultLocations);
     }
   };
 
@@ -111,7 +154,6 @@ function StockForm() {
               quantity: 0,
               minLevel: 10,
               reorderLevel: 20,
-              location: 'Main Warehouse',
               batchTracking: false,
               serialTracking: false
             }}
@@ -207,13 +249,34 @@ function StockForm() {
                 <Form.Item
                   label="Location"
                   name="location"
-                  rules={[{ required: true, message: 'Please enter location' }]}
+                  rules={[{ required: true, message: 'Please select location' }]}
+                  tooltip="Select the storage location for this stock"
                 >
-                  <Select placeholder="Select or enter location">
-                    <Option value="Main Warehouse">Main Warehouse</Option>
-                    <Option value="Retail Store">Retail Store</Option>
-                    <Option value="Factory">Factory</Option>
-                    <Option value="Distribution Center">Distribution Center</Option>
+                  <Select
+                    placeholder="Select location"
+                    showSearch
+                    allowClear
+                    optionFilterProp="children"
+                    filterOption={(input, option) =>
+                      option.children.toLowerCase().includes(input.toLowerCase())
+                    }
+                    notFoundContent={
+                      locations.length === 0
+                        ? "No locations available. Add locations in Location page first."
+                        : "No matching locations"
+                    }
+                  >
+                    {Array.isArray(locations) && locations.length > 0 ? (
+                      locations.map(loc => (
+                        loc && loc._id ? (
+                          <Option key={loc._id} value={loc.name || loc._id}>
+                            {loc.name} {loc.type && `- ${loc.type}`}
+                          </Option>
+                        ) : null
+                      ))
+                    ) : (
+                      <Option disabled value="">No locations available. Add locations first.</Option>
+                    )}
                   </Select>
                 </Form.Item>
               </Col>
