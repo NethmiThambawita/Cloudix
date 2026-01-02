@@ -247,7 +247,7 @@ function StockForm() {
             <Row gutter={16}>
               <Col xs={24} md={12}>
                 <Form.Item
-                  label="Location"
+                  label="Locations"
                   name="location"
                   rules={[{ required: true, message: 'Please select location' }]}
                   tooltip="Select the storage location for this stock"
@@ -270,7 +270,7 @@ function StockForm() {
                       locations.map(loc => (
                         loc && loc._id ? (
                           <Option key={loc._id} value={loc.name || loc._id}>
-                            {loc.name} {loc.type && `- ${loc.type}`}
+                            {loc.name}
                           </Option>
                         ) : null
                       ))
