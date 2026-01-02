@@ -183,35 +183,65 @@ function Reports() {
         });
 
       } else if (reportType === 'payments') {
-        // Load customer payments
+        // Load ALL customer payments (no limit) to get complete CASH total
         const response = await api.get('/payments', {
           params: {
             page: 1,
-            limit: 1000
+            limit: 10000
           }
         });
 
-        let payments = response.data.result || [];
+        let allPayments = response.data.result || [];
 
-        // Filter by date range
-        payments = payments.filter(p => {
+        // Get ALL CASH payments (no date filter) for statistics
+        const allCashPayments = allPayments.filter(p => {
+          return p.paymentMethod?.toLowerCase() === 'cash';
+        });
+
+        // Calculate TOTAL CASH amount (all time, no date filter)
+        const totalCashAmountAllTime = allCashPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const totalCashCountAllTime = allCashPayments.length;
+
+        console.log('Total CASH payments (all time):', totalCashCountAllTime);
+        console.log('Total CASH payment amount (all time):', totalCashAmountAllTime);
+
+        // Filter payments by date range for display
+        let payments = allPayments.filter(p => {
           const pDate = dayjs(p.date);
           return pDate.isAfter(startDate) && pDate.isBefore(endDate.add(1, 'day'));
         });
 
+        // Separate CASH payments from regular payments (date filtered)
+        const cashPayments = payments.filter(p => {
+          return p.paymentMethod?.toLowerCase() === 'cash';
+        });
+
+        console.log('CASH payments (date filtered):', cashPayments.length);
+
+        const regularPayments = payments.filter(p => {
+          return p.paymentMethod?.toLowerCase() !== 'cash';
+        });
+
         // Filter by customer if selected
+        let displayPayments = payments;
         if (selectedCustomer) {
-          payments = payments.filter(p => p.customer?._id === selectedCustomer);
+          displayPayments = displayPayments.filter(p => p.customer?._id === selectedCustomer);
         }
 
-        // Format for table
-        const formatted = payments.map(p => ({
+        // Calculate CASH amount for date-filtered payments
+        const totalCashAmount = cashPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+        console.log('Total CASH payment amount (date filtered):', totalCashAmount);
+
+        // Format ALL payments for table
+        const formatted = displayPayments.map(p => ({
           key: p._id,
           date: dayjs(p.date).format('YYYY-MM-DD'),
           invoiceNumber: p.paymentNumber,
-          customer: p.invoice?.customer?.name || p.customer?.name || 'N/A',
+          customer: p.customer?.name || 'N/A',
+          paymentMethod: p.paymentMethod || 'N/A',
           amount: p.amount,
-          status: 'Paid'
+          status: p.status || 'completed'
         }));
 
         const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -220,19 +250,39 @@ function Reports() {
         setStats({
           totalSales: totalPaid,
           totalInvoices: payments.length,
-          paidAmount: totalPaid
+          paidAmount: totalPaid,
+          cashAmount: totalCashAmountAllTime, // All-time total, not date filtered
+          cashCount: totalCashCountAllTime // All-time count, not date filtered
         });
 
       } else if (reportType === 'supplier-payments') {
-        // Load supplier payments
-        const response = await api.get('/supplier-payments', {
-          params: {
-            page: 1,
-            limit: 1000
-          }
-        });
+        // Load ALL supplier payments and GRNs
+        const [paymentsResponse, grnsResponse] = await Promise.all([
+          api.get('/supplier-payments', {
+            params: {
+              page: 1,
+              limit: 10000
+            }
+          }),
+          api.get('/grn', {
+            params: {
+              page: 1,
+              limit: 10000
+            }
+          })
+        ]);
 
-        let payments = response.data.result || [];
+        let payments = paymentsResponse.data.result || [];
+        const grns = grnsResponse.data.result || [];
+
+        // Calculate GRN totals
+        const grnTotal = grns.reduce((sum, grn) => sum + (grn.totalValue || 0), 0);
+        const grnPaidAmount = grns.reduce((sum, grn) => sum + (grn.paidAmount || 0), 0);
+        const grnBalanceAmount = grns.reduce((sum, grn) => sum + (grn.balanceAmount || grn.totalValue || 0), 0);
+
+        console.log('GRN Total:', grnTotal);
+        console.log('GRN Paid:', grnPaidAmount);
+        console.log('GRN Balance:', grnBalanceAmount);
 
         // Filter by date range
         payments = payments.filter(p => {
@@ -251,7 +301,9 @@ function Reports() {
           date: dayjs(p.paymentDate).format('YYYY-MM-DD'),
           invoiceNumber: p.paymentNumber,
           customer: p.supplier?.name || 'N/A',
+          grnNumber: p.grn?.grnNumber || 'N/A',
           amount: p.amount,
+          balance: p.grn?.balanceAmount || 0,
           status: p.status
         }));
 
@@ -261,7 +313,10 @@ function Reports() {
         setStats({
           totalSales: totalPaid,
           totalInvoices: payments.length,
-          paidAmount: payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0)
+          paidAmount: payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0),
+          grnTotal: grnTotal,
+          grnPaid: grnPaidAmount,
+          grnBalance: grnBalanceAmount
         });
 
       } else if (reportType === 'grn') {
@@ -506,11 +561,16 @@ function Reports() {
   const salesColumns = [
     { title: 'Date', dataIndex: 'date', key: 'date' },
     { title: 'Reference', dataIndex: 'invoiceNumber', key: 'invoiceNumber' },
-    {
+    ...(reportType !== 'payments' ? [{
       title: reportType === 'suppliers' || reportType === 'supplier-payments' || reportType === 'grn' ? 'Supplier' : 'Customer',
       dataIndex: 'customer',
       key: 'customer'
-    },
+    }] : []),
+    ...(reportType === 'supplier-payments' ? [{
+      title: 'GRN Number',
+      dataIndex: 'grnNumber',
+      key: 'grnNumber'
+    }] : []),
     {
       title: 'Amount',
       dataIndex: 'amount',
@@ -684,7 +744,7 @@ function Reports() {
         title={`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`}
         style={{ marginTop: 20 }}
         extra={
-          (reportType === 'sales' || reportType === 'invoices') && (
+          ((reportType === 'sales' || reportType === 'invoices') || reportType === 'payments') && (
             <Space>
               <span>Filter:</span>
               <Select
@@ -693,9 +753,21 @@ function Reports() {
                 style={{ width: 150 }}
                 size="small"
               >
-                <Option value="all">All Invoices</Option>
-                <Option value="cash">CASH Only</Option>
-                <Option value="paid">Paid Only</Option>
+                {reportType === 'payments' ? (
+                  <>
+                    <Option value="all">All Payments</Option>
+                    <Option value="cash">CASH Only</Option>
+                    <Option value="bank">Bank Only</Option>
+                    <Option value="cheque">Cheque Only</Option>
+                    <Option value="card">Card Only</Option>
+                  </>
+                ) : (
+                  <>
+                    <Option value="all">All Invoices</Option>
+                    <Option value="cash">CASH Only</Option>
+                    <Option value="paid">Paid Only</Option>
+                  </>
+                )}
               </Select>
             </Space>
           )
@@ -734,6 +806,52 @@ function Reports() {
             </Row>
           </div>
         )}
+        {reportType === 'payments' && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#f0f5ff', borderRadius: 4 }}>
+            <Row gutter={16}>
+              <Col span={8}>
+                <strong>Filtered Records:</strong> {
+                  categoryFilter === 'all' ? reportData.length :
+                  reportData.filter(r => r.paymentMethod?.toLowerCase() === categoryFilter).length
+                }
+              </Col>
+              <Col span={8}>
+                <strong>Total Amount:</strong> Rs. {
+                  (categoryFilter === 'all'
+                    ? reportData.reduce((sum, row) => sum + (row.amount || 0), 0)
+                    : reportData.filter(r => r.paymentMethod?.toLowerCase() === categoryFilter).reduce((sum, row) => sum + (row.amount || 0), 0)
+                  ).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                }
+              </Col>
+              <Col span={8}>
+                <strong>CASH Total (All Time):</strong> Rs. {
+                  (stats.cashAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                }
+              </Col>
+            </Row>
+          </div>
+        )}
+        {reportType === 'supplier-payments' && (
+          <div style={{ marginBottom: 16, padding: 12, background: '#fff7e6', borderRadius: 4 }}>
+            <Row gutter={16}>
+              <Col span={8}>
+                <strong>GRN Total:</strong> Rs. {
+                  (stats.grnTotal || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                }
+              </Col>
+              <Col span={8}>
+                <strong>GRN Paid:</strong> Rs. {
+                  (stats.grnPaid || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                }
+              </Col>
+              <Col span={8}>
+                <strong>GRN Balance:</strong> Rs. {
+                  (stats.grnBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                }
+              </Col>
+            </Row>
+          </div>
+        )}
         <Table
           columns={salesColumns}
           dataSource={
@@ -743,6 +861,10 @@ function Reports() {
                 : categoryFilter === 'cash'
                 ? reportData.filter(r => r.customer?.toUpperCase().includes('CASH'))
                 : reportData.filter(r => r.status === 'paid')
+              : reportType === 'payments'
+              ? categoryFilter === 'all'
+                ? reportData
+                : reportData.filter(r => r.paymentMethod?.toLowerCase() === categoryFilter)
               : reportData
           }
           rowKey="key"

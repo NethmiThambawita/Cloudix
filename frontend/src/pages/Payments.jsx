@@ -94,36 +94,27 @@ function Payments() {
       dataIndex: ['invoice', 'invoiceNumber'],
       key: 'invoice'
     },
-    {
-      title: 'Customer',
-      dataIndex: ['invoice', 'customer', 'name'],
-      key: 'customer',
-      render: (name) => name || '-'
+     { 
+      title: 'Customer', 
+      dataIndex: 'paymentMethod', 
+      key: 'paymentMethod',
+      render: (method) => method?.toUpperCase()
     },
+   
     {
       title: 'Amount',
       dataIndex: 'amount',
       key: 'amount',
       render: (val) => formatCurrency(val)
     },
-    { 
-      title: 'Method', 
-      dataIndex: 'paymentMethod', 
-      key: 'paymentMethod',
-      render: (method) => method?.toUpperCase()
-    },
+   
     { 
       title: 'Date', 
       dataIndex: 'date', 
       key: 'date', 
       render: (date) => new Date(date).toLocaleDateString('en-GB')
     },
-    {
-      title: 'Reference',
-      dataIndex: 'reference',
-      key: 'reference',
-      render: (ref) => ref || '-'
-    }
+  
   ];
 
   return (

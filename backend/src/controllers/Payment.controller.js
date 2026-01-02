@@ -16,12 +16,13 @@ const getNextSequence = async (type) => {
 // Get all payments
 export const getAllPayments = async (req, res) => {
   try {
-    const { page = 1, limit = 10, invoice, customer } = req.query;
+    const { page = 1, limit = 10, invoice, customer, paymentMethod } = req.query;
     const query = {};
-    
+
     if (invoice) query.invoice = invoice;
     if (customer) query.customer = customer;
-    
+    if (paymentMethod) query.paymentMethod = paymentMethod.toLowerCase();
+
     const payments = await Payment.find(query)
       .populate('invoice', 'invoiceNumber total')
       .populate('customer', 'name email')
@@ -30,9 +31,9 @@ export const getAllPayments = async (req, res) => {
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit))
       .lean();
-    
+
     const count = await Payment.countDocuments(query);
-    
+
     return res.status(200).json({
       success: true,
       result: payments,
@@ -44,9 +45,9 @@ export const getAllPayments = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in getAllPayments:', error);
-    return res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    return res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
