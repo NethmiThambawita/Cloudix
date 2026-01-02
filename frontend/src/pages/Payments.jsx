@@ -6,6 +6,9 @@ import api from '../api/axios';
 function Payments() {
   const [payments, setPayments] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [allInvoices, setAllInvoices] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
@@ -14,6 +17,7 @@ function Payments() {
   useEffect(() => {
     fetchPayments();
     fetchInvoices();
+    fetchCustomers();
   }, []);
 
   const fetchPayments = async () => {
@@ -33,11 +37,12 @@ function Payments() {
     try {
       const response = await api.get('/invoices');
       // ✅ FIXED: Changed from response.data.data to response.data.result
-      const allInvoices = response.data.result || [];
+      const invoiceList = response.data.result || [];
       // Filter for unpaid/partial invoices
-      const unpaid = allInvoices.filter(inv => 
+      const unpaid = invoiceList.filter(inv =>
         inv.status !== 'paid' && inv.balanceAmount > 0
       );
+      setAllInvoices(unpaid);
       setInvoices(unpaid);
     } catch (error) {
       console.error('Failed to load invoices:', error);
@@ -45,16 +50,42 @@ function Payments() {
     }
   };
 
+  const fetchCustomers = async () => {
+    try {
+      const response = await api.get('/customers');
+      setCustomers(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to load customers:', error);
+      message.error('Failed to load customers');
+    }
+  };
+
   const handleAdd = () => {
     form.resetFields();
     setSelectedInvoice(null);
+    setSelectedCustomer(null);
+    setInvoices(allInvoices);
     setModalVisible(true);
+  };
+
+  const handleCustomerSelect = (customerId) => {
+    setSelectedCustomer(customerId);
+    // Filter invoices by selected customer
+    if (customerId) {
+      const filtered = allInvoices.filter(inv => inv.customer?._id === customerId);
+      setInvoices(filtered);
+    } else {
+      setInvoices(allInvoices);
+    }
+    // Reset invoice selection when customer changes
+    form.setFieldsValue({ invoice: undefined });
+    setSelectedInvoice(null);
   };
 
   const handleInvoiceSelect = (invoiceId) => {
     const invoice = invoices.find(inv => inv._id === invoiceId);
     setSelectedInvoice(invoice);
-    
+
     // Auto-fill the amount with balance amount
     if (invoice) {
       form.setFieldsValue({
@@ -94,13 +125,18 @@ function Payments() {
       dataIndex: ['invoice', 'invoiceNumber'],
       key: 'invoice'
     },
-     { 
-      title: 'Customer', 
-      dataIndex: 'paymentMethod', 
+    {
+      title: 'Customer',
+      dataIndex: ['customer', 'name'],
+      key: 'customer',
+      render: (name) => name || 'N/A'
+    },
+    {
+      title: 'Payment Method',
+      dataIndex: 'paymentMethod',
       key: 'paymentMethod',
       render: (method) => method?.toUpperCase()
     },
-   
     {
       title: 'Amount',
       dataIndex: 'amount',
@@ -151,19 +187,43 @@ function Payments() {
         width={600}
       >
         <Form form={form} onFinish={handleSubmit} layout="vertical">
-          <Form.Item 
-            name="invoice" 
-            label="Invoice" 
+          <Form.Item
+            name="customer"
+            label="Customer (Optional - Filter invoices)"
+          >
+            <Select
+              placeholder="Select customer (CASH, DEBTOR, etc.)"
+              onChange={handleCustomerSelect}
+              showSearch
+              allowClear
+              optionFilterProp="children"
+              filterOption={(input, option) =>
+                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+              }
+            >
+              {customers.map(customer => (
+                <Select.Option key={customer._id} value={customer._id}>
+                  {customer.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="invoice"
+            label="Invoice"
             rules={[{ required: true, message: 'Please select invoice' }]}
           >
-            <Select 
-              placeholder="Select invoice to pay"
+            <Select
+              placeholder={selectedCustomer ? "Select invoice for this customer" : "Select invoice to pay"}
               onChange={handleInvoiceSelect}
               showSearch
               optionFilterProp="children"
               notFoundContent={
-                invoices.length === 0 
-                  ? "No unpaid invoices found. Create an invoice first." 
+                invoices.length === 0
+                  ? selectedCustomer
+                    ? "No unpaid invoices found for this customer."
+                    : "No unpaid invoices found. Create an invoice first."
                   : "No results"
               }
             >
