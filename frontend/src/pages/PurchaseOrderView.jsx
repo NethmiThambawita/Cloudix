@@ -46,6 +46,45 @@ function PurchaseOrderView() {
     setLoading(false);
   };
 
+  // ---------- PDF / Print Handlers ----------
+  const handlePDF = async () => {
+    try {
+      const response = await api.get(`/purchase-orders/${id}/pdf`, {
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${po.poNumber}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Failed to download PDF');
+    }
+  };
+
+  const handlePrint = async () => {
+    try {
+      const response = await api.get(`/purchase-orders/${id}/pdf`, {
+        responseType: 'blob',
+      });
+
+      const file = new Blob([response.data], { type: 'application/pdf' });
+      const fileURL = URL.createObjectURL(file);
+      const printWindow = window.open(fileURL);
+      printWindow.onload = () => {
+        printWindow.focus();
+        printWindow.print();
+      };
+    } catch (error) {
+      message.error(error.response?.data?.message || 'Failed to print PDF');
+    }
+  };
+
+  // ---------- Other Action Handlers ----------
   const handleApprove = () => {
     confirm({
       title: 'Approve Purchase Order?',
@@ -167,17 +206,7 @@ function PurchaseOrderView() {
     });
   };
 
-  const handlePDF = () => {
-    window.open(`${api.defaults.baseURL}/purchase-orders/${id}/pdf`, '_blank');
-  };
-
-  const handlePrint = () => {
-    const pdfWindow = window.open(`${api.defaults.baseURL}/purchase-orders/${id}/pdf`, '_blank');
-    pdfWindow.onload = () => {
-      pdfWindow.print();
-    };
-  };
-
+  // ---------- Utility Functions ----------
   const getStatusColor = (status) => {
     const colors = {
       draft: 'default',
@@ -278,48 +307,13 @@ function PurchaseOrderView() {
   };
 
   const itemColumns = [
-    {
-      title: '#',
-      width: 50,
-      render: (_, __, index) => index + 1
-    },
-    {
-      title: 'Product',
-      dataIndex: ['product', 'name'],
-      key: 'product'
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description'
-    },
-    {
-      title: 'Quantity',
-      dataIndex: 'quantity',
-      key: 'quantity',
-      align: 'right'
-    },
-    {
-      title: 'Unit Price',
-      dataIndex: 'unitPrice',
-      key: 'unitPrice',
-      align: 'right',
-      render: (value) => `Rs. ${value?.toFixed(2)}`
-    },
-    {
-      title: 'Discount %',
-      dataIndex: 'discount',
-      key: 'discount',
-      align: 'right',
-      render: (value) => value ? `${value}%` : '-'
-    },
-    {
-      title: 'Total',
-      dataIndex: 'total',
-      key: 'total',
-      align: 'right',
-      render: (value) => `Rs. ${value?.toFixed(2)}`
-    }
+    { title: '#', width: 50, render: (_, __, index) => index + 1 },
+    { title: 'Product', dataIndex: ['product', 'name'], key: 'product' },
+    { title: 'Description', dataIndex: 'description', key: 'description' },
+    { title: 'Quantity', dataIndex: 'quantity', key: 'quantity', align: 'right' },
+    { title: 'Unit Price', dataIndex: 'unitPrice', key: 'unitPrice', align: 'right', render: (value) => `Rs. ${value?.toFixed(2)}` },
+    { title: 'Discount %', dataIndex: 'discount', key: 'discount', align: 'right', render: (value) => value ? `${value}%` : '-' },
+    { title: 'Total', dataIndex: 'total', key: 'total', align: 'right', render: (value) => `Rs. ${value?.toFixed(2)}` },
   ];
 
   if (loading || !po) {
@@ -355,25 +349,11 @@ function PurchaseOrderView() {
           <Col xs={24} md={12}>
             <Card title="Purchase Order Details" size="small" style={{ marginBottom: 16 }}>
               <Descriptions column={1} size="small">
-                <Descriptions.Item label="PO Date">
-                  {dayjs(po.poDate).format('DD/MM/YYYY')}
-                </Descriptions.Item>
-                <Descriptions.Item label="Expected Delivery">
-                  {dayjs(po.expectedDeliveryDate).format('DD/MM/YYYY')}
-                </Descriptions.Item>
-                <Descriptions.Item label="Created By">
-                  {po.createdBy?.name}
-                </Descriptions.Item>
-                {po.approvedBy && (
-                  <Descriptions.Item label="Approved By">
-                    {po.approvedBy.name} on {dayjs(po.approvedAt).format('DD/MM/YYYY')}
-                  </Descriptions.Item>
-                )}
-                {po.sentBy && (
-                  <Descriptions.Item label="Sent By">
-                    {po.sentBy.name} on {dayjs(po.sentAt).format('DD/MM/YYYY')}
-                  </Descriptions.Item>
-                )}
+                <Descriptions.Item label="PO Date">{dayjs(po.poDate).format('DD/MM/YYYY')}</Descriptions.Item>
+                <Descriptions.Item label="Expected Delivery">{dayjs(po.expectedDeliveryDate).format('DD/MM/YYYY')}</Descriptions.Item>
+                <Descriptions.Item label="Created By">{po.createdBy?.name}</Descriptions.Item>
+                {po.approvedBy && <Descriptions.Item label="Approved By">{po.approvedBy.name} on {dayjs(po.approvedAt).format('DD/MM/YYYY')}</Descriptions.Item>}
+                {po.sentBy && <Descriptions.Item label="Sent By">{po.sentBy.name} on {dayjs(po.sentAt).format('DD/MM/YYYY')}</Descriptions.Item>}
               </Descriptions>
             </Card>
           </Col>
