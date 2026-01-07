@@ -362,37 +362,41 @@ export const generateQuotationPDF = async (req, res) => {
     const lightGray = '#f0f2f5';
     const borderColor = '#d9d9d9';
     
-    if (company?.logo && fs.existsSync(company.logo)) {
-      doc.image(company.logo, 50, yPos, { width: 120 });
-      yPos = 180;
-    }
+    // ========================================
+    // CENTERED QUOTATION TITLE AT TOP
+    // ========================================
+    doc.fontSize(28).font('Helvetica-Bold').fillColor(primaryColor);
+    doc.text('QUOTATION', 0, yPos, { 
+      width: pageWidth, 
+      align: 'center' 
+    });
     
-    doc.fontSize(20).font('Helvetica-Bold').text(company?.name || 'Company Name', 50, yPos);
+    yPos += 35;
+    
+    // ========================================
+    // COMPANY NAME CENTERED BELOW TITLE
+    // ========================================
+    doc.fontSize(14).font('Helvetica-Bold').fillColor(darkColor);
+    doc.text(company?.name || 'Company Name', 0, yPos, { 
+      width: pageWidth, 
+      align: 'center' 
+    });
+    
     yPos += 25;
     
-    doc.fontSize(10).font('Helvetica');
-    doc.text(company?.address || '', 50, yPos);
-    yPos += 15;
-    doc.text(company?.phone || '', 50, yPos);
-    yPos += 15;
-    doc.text(company?.email || '', 50, yPos);
-    yPos += 15;
+    // ========================================
+    // QUOTATION REFERENCE DETAILS - RIGHT ALIGNED
+    // ========================================
+    doc.fontSize(9).font('Helvetica').fillColor('#333333');
+    doc.text(`Quotation #: ${quotation.quotationNumber}`, 50, yPos);
+    yPos += 12;
+    doc.text(`Date: ${new Date(quotation.date).toLocaleDateString()}`, 50, yPos);
+    yPos += 12;
+    doc.text(`Valid Until: ${quotation.validUntil ? new Date(quotation.validUntil).toLocaleDateString() : 'N/A'}`, 50, yPos);
+    yPos += 12;
+    doc.text(`Status: ${quotation.status.toUpperCase()}`, 50, yPos);
     
-    if (company?.taxNumber) {
-      doc.text(`Tax No: ${company.taxNumber}`, 50, yPos);
-      yPos += 15;
-    }
-    
-    const titleY = 50;
-    doc.fontSize(24).font('Helvetica-Bold').text('QUOTATION', 400, titleY, { width: 150, align: 'right' });
-    
-    doc.fontSize(10).font('Helvetica');
-    doc.text(`Quotation #: ${quotation.quotationNumber}`, 400, titleY + 35, { width: 150, align: 'right' });
-    doc.text(`Date: ${new Date(quotation.date).toLocaleDateString()}`, 400, titleY + 50, { width: 150, align: 'right' });
-    doc.text(`Valid Until: ${quotation.validUntil ? new Date(quotation.validUntil).toLocaleDateString() : 'N/A'}`, 400, titleY + 65, { width: 150, align: 'right' });
-    doc.text(`Status: ${quotation.status.toUpperCase()}`, 400, titleY + 80, { width: 150, align: 'right' });
-    
-    yPos += 30;
+    yPos += 25;
     doc.fontSize(10).font('Helvetica-Bold').text('Bill To:', 50, yPos);
     yPos += 15;
     doc.font('Helvetica');
@@ -525,16 +529,48 @@ export const generateQuotationPDF = async (req, res) => {
     }
     
     if (quotation.terms) {
-      doc.fontSize(10).font('Helvetica-Bold');
-      doc.text('Terms & Conditions:', 50, yPos);
-      doc.font('Helvetica').fontSize(9);
+      doc.fontSize(10).font('Helvetica-Bold').fillColor(darkColor);
+      doc.text('Terms & Conditions', 0, yPos, { 
+        width: pageWidth, 
+        align: 'center' 
+      });
+      doc.font('Helvetica').fontSize(9).fillColor('#333333');
       const termsLines = quotation.terms.split('\n');
       let termsY = yPos + 15;
       termsLines.forEach(line => {
-        doc.text(line, 50, termsY, { width: 500 });
+        doc.text(line, 50, termsY, { 
+          width: pageWidth - 100,
+          align: 'center' 
+        });
         termsY += 15;
       });
       yPos = termsY;
+    }
+    
+    // ========================================
+    // COMPANY INFO AT BOTTOM - Below Terms
+    // ========================================
+    yPos += 20;
+    doc.fontSize(9).font('Helvetica').fillColor('#333333');
+    
+    if (company?.name) {
+      doc.fontSize(10).font('Helvetica-Bold');
+      doc.text(company.name, 50, yPos);
+      yPos += 12;
+    }
+    
+    doc.fontSize(9).font('Helvetica');
+    if (company?.address) {
+      doc.text(company.address, 50, yPos, { width: 350 });
+      yPos += 12;
+    }
+    if (company?.phone) {
+      doc.text(`Phone: ${company.phone}`, 50, yPos);
+      yPos += 12;
+    }
+    if (company?.taxNumber) {
+      doc.text(`Tax No: ${company.taxNumber}`, 50, yPos);
+      yPos += 12;
     }
     
     const footerText = company?.quotationFooter || "This quotation is valid for 30 days";

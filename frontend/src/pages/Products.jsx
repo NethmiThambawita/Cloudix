@@ -1,12 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, InputNumber, message, Space } from 'antd';
+import { Table, Button, Modal, Form, Input, InputNumber, message, Space, Select, Upload } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import api from '../api/axios';
 import { useSelector } from 'react-redux';
+
+const baseUnits = [
+  { label: 'No', value: 'No' },
+  { label: 'Kg', value: 'Kg' },
+  { label: 'g', value: 'g' },
+  { label: 'Litre', value: 'Litre' },
+  { label: 'ml', value: 'ml' },
+  { label: 'Pack', value: 'Pack' },
+];
 
 function Products() {
   const { user } = useSelector((state) => state.auth);
   const isAdmin = user?.role === 'admin';
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +41,7 @@ function Products() {
     setLoading(false);
   };
 
+  // ------------------- CRUD -------------------
   const handleAdd = () => {
     if (!isAdmin) {
       message.error('You do not have permission to add products');
@@ -64,10 +77,7 @@ function Products() {
   };
 
   const handleSubmit = async (values) => {
-    // Prevent duplicate submissions
-    if (submitting) {
-      return;
-    }
+    if (submitting) return;
 
     setSubmitting(true);
     try {
@@ -87,10 +97,69 @@ function Products() {
     }
   };
 
+  // ------------------- Excel Export -------------------
+  const exportToExcel = () => {
+    const exportData = products.map(p => ({
+      Name: p.name,
+      Category: p.category,
+      BaseUnit: p.baseUnit,
+      PackSize: p.packSize,
+      UnitCost: p.unitCost,
+      SellingPrice: p.price,
+      TaxRate: p.taxRate,
+      Description: p.description
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const data = new Blob([excelBuffer], { type: 'application/octet-stream' });
+
+    saveAs(data, 'products.xlsx');
+  };
+
+  // ------------------- Excel Import -------------------
+  const importFromExcel = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await api.post('/products/import/excel', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      message.success(response.data.message || 'Excel imported successfully');
+      fetchProducts();
+    } catch (error) {
+      console.error('Import error:', error);
+      message.error(error.response?.data?.message || 'Excel import failed');
+    }
+    
+    return false;
+  };
+
+  // ------------------- Table Columns -------------------
   const columns = [
-    { title: 'Name', dataIndex: 'name', key: 'name' },
+    { title: 'Item', dataIndex: 'name', key: 'name' },
     { title: 'Category', dataIndex: 'category', key: 'category' },
-    { title: 'Price', dataIndex: 'price', key: 'price', render: (val) => `Rs. ${val?.toLocaleString()}` },
+    { title: 'Base Unit', dataIndex: 'baseUnit', key: 'baseUnit' },
+    { title: 'Pack Size', dataIndex: 'packSize', key: 'packSize' },
+    {
+      title: 'Unit Cost',
+      dataIndex: 'unitCost',
+      key: 'unitCost',
+      render: (val) => `Rs. ${val?.toLocaleString()}`
+    },
+    {
+      title: 'Selling Price',
+      dataIndex: 'price',
+      key: 'price',
+      render: (val) => `Rs. ${val?.toLocaleString()}`
+    },
     { title: 'Tax %', dataIndex: 'taxRate', key: 'taxRate' },
     ...(isAdmin
       ? [
@@ -110,15 +179,32 @@ function Products() {
 
   return (
     <div>
+      {/* ---------- Header with Buttons ---------- */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1>Products</h1>
-        {isAdmin && (
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            Add Product
-          </Button>
-        )}
+
+        <Space>
+          <Button onClick={exportToExcel}>Export Excel</Button>
+
+          {isAdmin && (
+            <Upload
+              beforeUpload={importFromExcel}
+              showUploadList={false}
+              accept=".xlsx,.xls"
+            >
+              <Button>Import Excel</Button>
+            </Upload>
+          )}
+
+          {isAdmin && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+              Add Product
+            </Button>
+          )}
+        </Space>
       </div>
 
+      {/* ---------- Product Table ---------- */}
       <Table
         columns={columns}
         dataSource={products}
@@ -126,6 +212,7 @@ function Products() {
         loading={loading}
       />
 
+      {/* ---------- Add/Edit Modal ---------- */}
       {isAdmin && (
         <Modal
           title={editingProduct ? 'Edit Product' : 'Add Product'}
@@ -134,23 +221,55 @@ function Products() {
           onOk={() => form.submit()}
           confirmLoading={submitting}
         >
-        <Form form={form} onFinish={handleSubmit} layout="vertical">
-          <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="category" label="Category">
-            <Input />
-          </Form.Item>
-          <Form.Item name="price" label="Price (LKR)" rules={[{ required: true }]}>
-            <InputNumber min={0} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="taxRate" label="Tax Rate (%)" initialValue={0}>
-            <InputNumber min={0} max={100} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="description" label="Description">
-            <Input.TextArea rows={3} />
-          </Form.Item>
-        </Form>
+          <Form form={form} onFinish={handleSubmit} layout="vertical">
+            <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+
+            <Form.Item name="category" label="Category">
+              <Input />
+            </Form.Item>
+
+            <Form.Item
+              name="baseUnit"
+              label="Base Unit of Measure"
+              rules={[{ required: true }]}
+            >
+              <Select options={baseUnits} placeholder="Select unit" />
+            </Form.Item>
+
+            <Form.Item
+              name="packSize"
+              label="Pack Size"
+              rules={[{ required: true }]}
+            >
+              <InputNumber min={1} style={{ width: '100%' }} />
+            </Form.Item>
+
+            <Form.Item
+              name="unitCost"
+              label="Unit Cost (LKR)"
+              rules={[{ required: true }]}
+            >
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+
+            <Form.Item
+              name="price"
+              label="Selling Price (LKR)"
+              rules={[{ required: true }]}
+            >
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+
+            <Form.Item name="taxRate" label="Tax Rate (%)" initialValue={0}>
+              <InputNumber min={0} max={100} style={{ width: '100%' }} />
+            </Form.Item>
+
+            <Form.Item name="description" label="Description">
+              <Input.TextArea rows={3} />
+            </Form.Item>
+          </Form>
         </Modal>
       )}
     </div>

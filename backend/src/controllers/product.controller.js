@@ -1,16 +1,20 @@
 import Product from '../models/Product.js';
 
+/**
+ * GET ALL PRODUCTS
+ */
 export const getAll = async (req, res) => {
   try {
     console.log('📦 GET /products - Query params:', req.query);
-    
+
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 100;
     const skip = (page - 1) * limit;
 
-    // Get products without pagination limit for now (for dropdowns)
     const products = await Product.find()
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
     const total = await Product.countDocuments();
@@ -29,199 +33,194 @@ export const getAll = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error in getAll products:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message,
-      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
 
+/**
+ * GET ONE PRODUCT
+ */
 export const getOne = async (req, res) => {
   try {
     console.log('📦 GET /products/:id -', req.params.id);
-    
+
     const product = await Product.findById(req.params.id);
-    
+
     if (!product) {
-      console.log('⚠️ Product not found:', req.params.id);
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found'
       });
     }
-    
-    console.log('✅ Product found:', product.name);
+
     res.json({ success: true, result: product });
   } catch (error) {
     console.error('❌ Error in getOne product:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };
 
+/**
+ * CREATE PRODUCT
+ */
 export const create = async (req, res) => {
   try {
-    console.log('📦 POST /products - Creating product:', req.body);
-    
-    // ✅ FIXED: Enhanced validation
-    if (!req.body.name || req.body.name.trim() === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Product name is required and cannot be empty'
-      });
-    }
-    
-    if (req.body.price === undefined || req.body.price === null || req.body.price === '') {
-      return res.status(400).json({
-        success: false,
-        message: 'Product price is required'
-      });
+    console.log('📦 POST /products - Creating:', req.body);
+
+    const {
+      name,
+      category,
+      baseUnit,
+      packSize,
+      unitCost,
+      price,
+      taxRate,
+      description,
+      isActive
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Product name is required' });
     }
 
-    const priceValue = parseFloat(req.body.price);
-    if (isNaN(priceValue) || priceValue < 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Product price must be a valid positive number'
-      });
+    if (!baseUnit) {
+      return res.status(400).json({ success: false, message: 'Base unit is required' });
     }
-    
-    // ✅ FIXED: Create product with proper data
+
+    if (!packSize || packSize <= 0) {
+      return res.status(400).json({ success: false, message: 'Pack size must be greater than 0' });
+    }
+
+    if (unitCost === undefined || unitCost < 0) {
+      return res.status(400).json({ success: false, message: 'Unit cost is required' });
+    }
+
+    if (price === undefined || price < 0) {
+      return res.status(400).json({ success: false, message: 'Selling price is required' });
+    }
+
     const product = await Product.create({
-      name: req.body.name.trim(),
-      category: req.body.category ? req.body.category.trim() : '',
-      price: priceValue,
-      taxRate: parseFloat(req.body.taxRate) || 0,
-      description: req.body.description ? req.body.description.trim() : '',
-      isActive: req.body.isActive !== undefined ? req.body.isActive : true
+      name: name.trim(),
+      category: category?.trim(),
+      baseUnit,
+      packSize,
+      unitCost,
+      price,
+      taxRate: parseFloat(taxRate) || 0,
+      description: description?.trim(),
+      isActive: isActive !== undefined ? isActive : true
     });
-    
-    console.log('✅ Product created:', product._id, product.name);
-    res.status(201).json({ 
-      success: true, 
+
+    console.log('✅ Product created:', product._id);
+
+    res.status(201).json({
+      success: true,
       result: product,
       message: 'Product created successfully'
     });
+
   } catch (error) {
     console.error('❌ Error creating product:', error);
-    
-    // Handle validation errors
+
     if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors: messages
+        message: Object.values(error.errors).map(e => e.message)
       });
     }
-    
-    // Handle duplicate key errors
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'A product with this name already exists'
-      });
-    }
-    
-    res.status(500).json({ 
-      success: false, 
-      message: error.message || 'Failed to create product'
-    });
+
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+/**
+ * UPDATE PRODUCT
+ */
 export const update = async (req, res) => {
   try {
-    console.log('📦 PUT /products/:id -', req.params.id, req.body);
-    
-    // ✅ FIXED: Validate price if provided
-    if (req.body.price !== undefined) {
-      const priceValue = parseFloat(req.body.price);
-      if (isNaN(priceValue) || priceValue < 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'Product price must be a valid positive number'
-        });
-      }
-      req.body.price = priceValue;
+    console.log('📦 PUT /products/:id -', req.params.id);
+
+    const {
+      name,
+      category,
+      baseUnit,
+      packSize,
+      unitCost,
+      price,
+      taxRate,
+      description,
+      isActive
+    } = req.body;
+
+    if (price !== undefined && price < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid selling price' });
     }
-    
+
+    if (unitCost !== undefined && unitCost < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid unit cost' });
+    }
+
     const product = await Product.findByIdAndUpdate(
-      req.params.id, 
+      req.params.id,
       {
-        name: req.body.name,
-        category: req.body.category,
-        price: req.body.price,
-        taxRate: parseFloat(req.body.taxRate) || 0,
-        description: req.body.description,
-        isActive: req.body.isActive
+        name,
+        category,
+        baseUnit,
+        packSize,
+        unitCost,
+        price,
+        taxRate: parseFloat(taxRate) || 0,
+        description,
+        isActive
       },
-      {
-        new: true,
-        runValidators: true
-      }
+      { new: true, runValidators: true }
     );
-    
+
     if (!product) {
-      console.log('⚠️ Product not found for update:', req.params.id);
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    
-    console.log('✅ Product updated:', product._id, product.name);
-    res.json({ 
-      success: true, 
+
+    console.log('✅ Product updated:', product._id);
+
+    res.json({
+      success: true,
       result: product,
       message: 'Product updated successfully'
     });
+
   } catch (error) {
     console.error('❌ Error updating product:', error);
-    
-    if (error.name === 'ValidationError') {
-      const messages = Object.values(error.errors).map(err => err.message);
-      return res.status(400).json({
-        success: false,
-        message: 'Validation error',
-        errors: messages
-      });
-    }
-    
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
+/**
+ * DELETE PRODUCT
+ */
 export const remove = async (req, res) => {
   try {
     console.log('📦 DELETE /products/:id -', req.params.id);
-    
+
     const product = await Product.findByIdAndDelete(req.params.id);
-    
+
     if (!product) {
-      console.log('⚠️ Product not found for deletion:', req.params.id);
-      return res.status(404).json({ 
-        success: false, 
-        message: 'Product not found' 
-      });
+      return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    
-    console.log('✅ Product deleted:', product._id, product.name);
-    res.json({ 
-      success: true, 
-      message: 'Product deleted successfully' 
+
+    console.log('✅ Product deleted:', product._id);
+
+    res.json({
+      success: true,
+      message: 'Product deleted successfully'
     });
   } catch (error) {
     console.error('❌ Error deleting product:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message 
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
